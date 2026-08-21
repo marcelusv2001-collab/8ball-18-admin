@@ -3,195 +3,587 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Backend App</title>
+    <title>8-Ball Cash League - Backend Hub</title>
+    <style>
+        :root {
+            --bg: #020617; --felt: #000080; --gold: #fbbf24;
+            --wood: #451a03; --slate: #1e293b; --text: #f8fafc;
+            --home: #3b82f6; --visit: #ef4444;
+            --status-off: #475569; --status-on: #22c55e; --status-err: #ef4444;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            background: var(--bg); color: var(--text);
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0; padding: 0; min-height: 100vh;
+            display: flex; flex-direction: column;
+        }
+
+        header {
+            background: linear-gradient(to bottom, var(--wood), #000080);
+            padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid var(--gold);
+        }
+        header h1 { font-size: 1.1rem; margin: 0; color: var(--gold); text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Navigation Tabs */
+        .tabs {
+            display: flex; background: #0f172a; border-bottom: 2px solid #334155;
+        }
+        .tab-btn {
+            flex: 1; background: none; border: none; padding: 15px; color: #94a3b8;
+            font-size: 0.9rem; font-weight: bold; cursor: pointer; text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+        .tab-btn.active {
+            color: var(--gold); background: var(--slate); border-bottom: 3px solid var(--gold);
+        }
+
+        .tab-content { display: none; padding: 20px; flex: 1; max-width: 1000px; width: 100%; margin: 0 auto; }
+        .tab-content.active { display: block; }
+
+        /* General UI Elements */
+        .card {
+            background: var(--slate); border: 1px solid #334155; border-radius: 12px;
+            padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5);
+        }
+        h2 { color: var(--gold); font-size: 1.1rem; margin-top: 0; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+        
+        input, textarea, select {
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #475569;
+            background: #020617; color: white; font-size: 0.9rem; margin-top: 6px; margin-bottom: 15px;
+        }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: var(--gold); }
+
+        .btn {
+            background: var(--gold); color: black; border: none; padding: 12px 20px;
+            border-radius: 8px; font-weight: bold; cursor: pointer; text-transform: uppercase;
+            font-size: 0.85rem; transition: opacity 0.2s; display: inline-block; text-align: center;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-danger { background: var(--visit); color: white; }
+        .btn-secondary { background: #475569; color: white; }
+
+        /* Match Submission Tab */
+        .match-list-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .match-list-table th, .match-list-table td {
+            padding: 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 0.85rem;
+        }
+        .match-list-table th { color: var(--gold); background: #0f172a; }
+        
+        .badge {
+            padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase;
+        }
+        .badge-pending { background: #475569; color: white; }
+        .badge-approved { background: var(--status-on); color: black; }
+
+        /* Modal Overlay */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+        }
+        .modal-content {
+            background: var(--slate); border: 2px solid var(--gold); border-radius: 12px;
+            padding: 25px; width: 100%; max-width: 750px; max-height: 90vh; overflow-y: auto;
+        }
+
+        /* Export / TSV Output */
+        pre {
+            background: #020617; border: 1px solid #334155; padding: 15px; border-radius: 8px;
+            overflow-x: auto; color: #a5f3fc; font-size: 0.8rem; max-height: 250px;
+        }
+
+        .status-container {
+            display: flex; align-items: center; gap: 10px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 15px;
+        }
+        .led-light { width: 12px; height: 12px; border-radius: 50%; background: var(--status-off); }
+        .led-light.active { background: var(--status-on); box-shadow: 0 0 10px var(--status-on); }
+        .led-light.error { background: var(--status-err); box-shadow: 0 0 10px var(--status-err); }
+
+        .sig-preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .sig-preview-box { background: white; padding: 5px; border-radius: 6px; text-align: center; }
+        .sig-preview-box img { max-width: 100%; height: 60px; object-fit: contain; }
+        .sig-preview-box span { font-size: 0.7rem; color: black; font-weight: bold; display: block; }
+        
+        .help-section { margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5; color: #cbd5e1; }
+        .help-section h3 { color: var(--gold); margin-bottom: 8px; font-size: 1rem; }
+    </style>
 </head>
 <body>
 
-    <!-- Saved Sheet URL Input -->
-    <div>
-        <label for="sheet-url-input">Google Sheet Web / CSV URL:</label>
-        <input type="text" id="sheet-url-input" placeholder="Paste URL here">
-        <button onclick="saveSheetUrl()">Save URL</button>
-        <button onclick="clearSheetUrl()">Clear</button>
-        <span id="url-save-status"></span>
+<header>
+    <h1>8-Ball Cash League — Backend Hub</h1>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <button class="btn btn-secondary" style="padding: 8px 15px; font-size: 0.75rem;" onclick="openHelpModal()">❓ Help & Setup Guide</button>
+        <span style="font-size: 0.8rem; color: #94a3b8;">Batch Processor & Sheet Sync</span>
+    </div>
+</header>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(event, 'tab-submission')">1. Match Submission & Review</button>
+    <button class="tab-btn" onclick="switchTab(event, 'tab-sheets')">2. Sheet Connection & Export</button>
+</div>
+
+<!-- TAB 1: MATCH SUBMISSION & REVIEW -->
+<div id="tab-submission" class="tab-content active">
+    <div class="card">
+        <h2>📥 Import Raw Match Payload</h2>
+        <p style="font-size: 0.85rem; color: #94a3b8;">Paste your complete match message payload below. Team names, scores, individual matches, and types are parsed automatically.</p>
+        
+        <label>Raw Match Text Payload</label>
+        <textarea id="input-payload" rows="6" placeholder="8-BALL CASH LEAGUE&#10;[HT] TEAM ALPHA (12)&#10;[VT] TEAM BETA (6)&#10;&#10;Gm1 PlayerA (W) vs PlayerB (TR)&#10;Gm2 PlayerC vs PlayerD (8BB)"></textarea>
+        
+        <div style="margin-top: 15px;">
+            <label style="font-size: 0.8rem; color: var(--gold);">Optional: Home Captain Signature (Base64 / DataURL)</label>
+            <input type="text" id="input-home-sig" placeholder="data:image/png;base64,...">
+        </div>
+        <div>
+            <label style="font-size: 0.8rem; color: var(--gold);">Optional: Visiting Captain Signature (Base64 / DataURL)</label>
+            <input type="text" id="input-visit-sig" placeholder="data:image/png;base64,...">
+        </div>
+
+        <button class="btn" onclick="stageMatch()" style="margin-top: 10px;">Add Match to Queue</button>
     </div>
 
-    <br>
+    <div class="card">
+        <h2>📋 Staged Matches Queue & Review</h2>
+        <table class="match-list-table">
+            <thead>
+                <tr>
+                    <th>Parsed Matchup</th>
+                    <th>Score / Games</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="staged-matches-body">
+                <tr><td colspan="4" style="text-align: center; color: #64748b;">No matches currently staged.</td></tr>
+            </tbody>
+        </table>
+        <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+            <button class="btn" id="batch-approve-btn" onclick="lockAndGenerateBatch()" disabled style="opacity: 0.5;">Lock Batch for Export</button>
+        </div>
+    </div>
+</div>
 
-    <!-- Original Control Buttons & Navigation -->
-    <div>
-        <button class="tab-btn" onclick="switchTab(event, 'tab-staged')">Staged Matches</button>
-        <button class="tab-btn" onclick="switchTab(event, 'tab-sheets')">Batch Output</button>
+<!-- TAB 2: SHEET CONNECTION & EXPORT -->
+<div id="tab-sheets" class="tab-content">
+    <div class="card">
+        <h2>🔗 Google Sheets / Backend Connection</h2>
+        <div class="status-container">
+            <div id="sheet-led" class="led-light"></div>
+            <span id="sheet-status-text" style="font-size: 0.8rem; font-weight: bold;">CONNECTION: UNCONFIGURED</span>
+        </div>
+        <label>Google Apps Script Web App URL / API Endpoint</label>
+        <input type="text" id="sheet-webhook-url" placeholder="https://script.google.com/macros/s/.../exec">
+        <div style="display: flex; gap: 10px;">
+            <button class="btn" onclick="testConnection()">Test Connection</button>
+            <button class="btn btn-secondary" onclick="saveWebhookUrl()">Save Endpoint</button>
+        </div>
     </div>
 
-    <div id="tab-staged" class="tab-content">
-        <button onclick="lockAndGenerateBatch()">Lock & Generate Batch</button>
+    <div class="card">
+        <h2>📤 Batch TSV Payload Generator</h2>
+        <p style="font-size: 0.85rem; color: #94a3b8;">Approved match lines are packaged cleanly into individual row items with discrete columns.</p>
+        <label>Generated TSV Data Stream</label>
+        <pre id="tsv-output-box"># Staged data will appear here after batch approval...</pre>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn btn-secondary" onclick="copyTSVToClipboard()">Copy TSV to Clipboard</button>
+            <button class="btn" id="send-sheet-btn" onclick="sendDataToSheet()" disabled style="opacity: 0.5;">Send Batch to Connected Sheet</button>
+        </div>
     </div>
+</div>
 
-    <div id="tab-sheets" class="tab-content">
-        <div id="tsv-output-box"></div>
-        <button id="send-sheet-btn" onclick="sendToGoogleSheet()">Send to Google Sheet</button>
+<!-- REVIEW & EDIT POPUP MODAL -->
+<div id="review-modal" class="modal">
+    <div class="modal-content">
+        <h2>🔍 Review & Modify Match Data</h2>
+        <input type="hidden" id="edit-match-index">
+        <label>Match Payload / Text Data</label>
+        <textarea id="edit-match-payload" rows="8"></textarea>
+        
+        <label style="margin-top: 10px; display: block; font-size: 0.85rem; color: var(--gold);">Signatures Attached:</label>
+        <div class="sig-preview-grid">
+            <div class="sig-preview-box">
+                <span>Home Captain</span>
+                <img id="edit-home-sig-preview" src="" alt="No Home Signature">
+            </div>
+            <div class="sig-preview-box">
+                <span>Visiting Captain</span>
+                <img id="edit-visit-sig-preview" src="" alt="No Visit Signature">
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+            <button class="btn btn-danger" onclick="deleteStagedMatch()">Delete Entry</button>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" onclick="closeReviewModal()">Cancel</button>
+                <button class="btn" onclick="saveMatchEdits()">Save & Approve</button>
+            </div>
+        </div>
     </div>
+</div>
 
-    <script>
-        let stagedMatches = [];
-        let finalizedTSV = "";
+<!-- HELP & SETUP GUIDE MODAL -->
+<div id="help-modal" class="modal">
+    <div class="modal-content">
+        <h2>📖 Help & Complete Setup Guide</h2>
+        
+        <div class="help-section">
+            <h3>1. How to Process Matches</h3>
+            <ul>
+                <li><strong>Paste Payload:</strong> Paste your app's raw match score message in Tab 1. The app automatically scans team names, scores, and individual frame rows (Home Player, Visiting Player, Type).</li>
+                <li><strong>Add Signatures:</strong> Paste the Base64/DataURL image string for the captain signatures into the signature fields.</li>
+                <li><strong>Review & Approve:</strong> Click <strong>Review / Edit</strong> on any staged match to verify extracted details, view preview thumbnails, and click <strong>Save & Approve</strong>.</li>
+                <li><strong>Lock Batch:</strong> Once all matches are approved, click <strong>Lock Batch for Export</strong> to generate your clean TSV data stream.</li>
+            </ul>
+        </div>
 
-        // Auto-load saved URL on startup
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedUrl = localStorage.getItem('backend_sheet_url');
-            if (savedUrl) {
-                document.getElementById('sheet-url-input').value = savedUrl;
-            }
+        <div class="help-section">
+            <h3>2. Connecting Google Sheets (Google Apps Script)</h3>
+            <p>To let this web app write cleanly to your Google Sheet rows:</p>
+            <ol>
+                <li>Open your target Google Sheet. Set Row 1 headers as: <code>HomeTeam</code> | <code>VisitingTeam</code> | <code>Timestamp</code> | <code>HomePlayer</code> | <code>VisitingPlayer</code> | <code>MatchType</code> | <code>GameNumber</code> | <code>HomeSignature</code> | <code>VisitingSignature</code></li>
+                <li>In top menu, click <strong>Extensions</strong> &gt; <strong>Apps Script</strong>.</li>
+                <li>Paste the script code provided below, and save the project.</li>
+                <li>Click <strong>Deploy</strong> (top right) &gt; <strong>New deployment</strong>. Choose type: <strong>Web app</strong>. Set <em>Execute as: Me</em> and <em>Who has access: Anyone</em>.</li>
+                <li>Copy the generated <strong>Web app URL</strong> and paste it into Tab 2 of this hub!</li>
+            </ol>
+        </div>
+
+        <div class="help-section">
+            <h3>3. Google Apps Script Code (Copy & Paste)</h3>
+            <pre><code>function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var tsvData = e.postData.contents;
+    var rows = tsvData.split("\n");
+    
+    for (var i = 1; i < rows.length; i++) {
+      if (!rows[i].trim()) continue;
+      var columns = rows[i].split("\t");
+      sheet.appendRow(columns);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({"status": "success", "rowsAdded": rows.length - 1}))
+                         .setMimeType(ContentService.MimeType.JSON);
+                         
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({"status": "error", "message": error.toString()}))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  return ContentService.createTextOutput("Backend Hub is connected and listening!");
+}</code></pre>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+            <button class="btn" onclick="closeHelpModal()">Got It, Close Help</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let stagedMatches = [];
+    let finalizedTSV = "";
+
+    function switchTab(evt, tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        evt.currentTarget.classList.add('active');
+    }
+
+    // Help Modal Controls
+    function openHelpModal() {
+        document.getElementById('help-modal').style.display = 'flex';
+    }
+    function closeHelpModal() {
+        document.getElementById('help-modal').style.display = 'none';
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedUrl = localStorage.getItem('league_webhook_url');
+        if (savedUrl) {
+            document.getElementById('sheet-webhook-url').value = savedUrl;
+            updateSheetStatus('success', 'CONNECTED (SAVED ENDPOINT)');
+        }
+    });
+
+    function saveWebhookUrl() {
+        const url = document.getElementById('sheet-webhook-url').value.trim();
+        if (!url) { alert('Please enter a valid endpoint URL.'); return; }
+        localStorage.setItem('league_webhook_url', url);
+        updateSheetStatus('success', 'ENDPOINT SAVED');
+        alert('Sheet connection URL saved successfully!');
+    }
+
+    async function testConnection() {
+        const url = document.getElementById('sheet-webhook-url').value.trim();
+        if (!url) { alert('Please enter an endpoint first.'); return; }
+        updateSheetStatus('off', 'TESTING CONNECTION...');
+        try {
+            await fetch(url, { method: 'GET', mode: 'no-cors' });
+            updateSheetStatus('success', 'CONNECTION REACHABLE');
+            alert('Endpoint reachable!');
+        } catch (err) {
+            updateSheetStatus('error', 'CONNECTION FAILED');
+            alert('Could not reach endpoint. Check URL or CORS settings.');
+        }
+    }
+
+    function updateSheetStatus(type, text) {
+        const led = document.getElementById('sheet-led');
+        const txt = document.getElementById('sheet-status-text');
+        led.className = 'led-light';
+        if (type === 'success') { led.classList.add('active'); txt.style.color = 'var(--status-on)'; }
+        else if (type === 'error') { led.classList.add('error'); txt.style.color = 'var(--status-err)'; }
+        else { txt.style.color = '#94a3b8'; }
+        txt.innerText = 'CONNECTION: ' + text;
+    }
+
+    function parseMatchDetails(payload) {
+    let homeTeam = "Unknown Home";
+    let visitTeam = "Unknown Visit";
+    let scoreText = "N/A";
+    let individualGames = [];
+
+    const htMatch = payload.match(/\[HT\]\s+(.*?)(?:\s*\((\d+)\))?$/m);
+    const vtMatch = payload.match(/\[VT\]\s+(.*?)(?:\s*\((\d+)\))?$/m);
+
+    if (htMatch) homeTeam = htMatch[1].trim();
+    if (vtMatch) visitTeam = vtMatch[1].trim();
+
+    const hScoreMatch = payload.match(/\[HT\].*?\((\d+)\)/);
+    const vScoreMatch = payload.match(/\[VT\].*?\((\d+)\)/);
+    if (hScoreMatch && vScoreMatch) {
+        scoreText = `${hScoreMatch[1]} - ${vScoreMatch[1]}`;
+    }
+
+    const lines = payload.split(/\r?\n/);
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        const gameRowRegex = /^(?:(Gm\d+)\s+)?(.*?)\s+vs\s+(.*)$/i;
+        const matchResult = trimmed.match(gameRowRegex);
+
+        if (matchResult) {
+            const gameNum = matchResult[1] || "Gm";
+            const homeRaw = matchResult[2].trim();
+            const visitRaw = matchResult[3].trim();
+
+            // Extract flags for Home Player
+            const homeWin = /\(W\)/i.test(homeRaw);
+            const homeTR = /\(TR\)/i.test(homeRaw);
+            const home8BB = /\(8BB\)/i.test(homeRaw);
+            const homeNP = /\(NP\)/i.test(homeRaw); // New Player flag
+            const homePlayer = homeRaw.replace(/\((W|TR|8BB|NP)\)/gi, '').trim();
+
+            // Extract flags for Visiting Player
+            const visitWin = /\(W\)/i.test(visitRaw);
+            const visitTR = /\(TR\)/i.test(visitRaw);
+            const visit8BB = /\(8BB\)/i.test(visitRaw);
+            const visitNP = /\(NP\)/i.test(visitRaw); // New Player flag
+            const visitPlayer = visitRaw.replace(/\((W|TR|8BB|NP)\)/gi, '').trim();
+
+            individualGames.push({
+                gameNum,
+                homePlayer,
+                homeNP,
+                homeWin,
+                homeTR,
+                home8BB,
+                visitPlayer,
+                visitNP,
+                visitWin,
+                visitTR,
+                visit8BB
+            });
+        }
+    });
+
+    if (individualGames.length === 0) {
+        individualGames.push({
+            gameNum: "Overall",
+            homePlayer: homeTeam,
+            visitPlayer: visitTeam,
+            homeNP: false, homeWin: false, homeTR: false, home8BB: false,
+            visitNP: false, visitWin: false, visitTR: false, visit8BB: false
+        });
+    }
+
+    return { homeTeam, visitTeam, scoreText, individualGames };
+}
+    function stageMatch() {
+        const payload = document.getElementById('input-payload').value.trim();
+        const homeSig = document.getElementById('input-home-sig').value.trim();
+        const visitSig = document.getElementById('input-visit-sig').value.trim();
+
+        if (!payload) {
+            alert('Please provide a raw text match payload.');
+            return;
+        }
+
+        const parsed = parseMatchDetails(payload);
+
+        stagedMatches.push({
+            id: Date.now(),
+            payload,
+            homeTeam: parsed.homeTeam,
+            visitTeam: parsed.visitTeam,
+            scoreText: parsed.scoreText,
+            individualGames: parsed.individualGames,
+            homeSig,
+            visitSig,
+            approved: false
         });
 
-        // Save URL function
-        function saveSheetUrl() {
-            const urlInput = document.getElementById('sheet-url-input').value.trim();
-            if (!urlInput) {
-                alert("Please enter a valid URL.");
-                return;
-            }
-            localStorage.setItem('backend_sheet_url', urlInput);
-            document.getElementById('url-save-status').innerText = "URL saved!";
-            setTimeout(() => { document.getElementById('url-save-status').innerText = ""; }, 3000);
+        document.getElementById('input-payload').value = '';
+        document.getElementById('input-home-sig').value = '';
+        document.getElementById('input-visit-sig').value = '';
+
+        renderStagedQueue();
+    }
+
+    function renderStagedQueue() {
+        const tbody = document.getElementById('staged-matches-body');
+        if (stagedMatches.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b;">No matches currently staged.</td></tr>`;
+            document.getElementById('batch-approve-btn').disabled = true;
+            document.getElementById('batch-approve-btn').style.opacity = '0.5';
+            return;
         }
 
-        // Clear URL function
-        function clearSheetUrl() {
-            localStorage.removeItem('backend_sheet_url');
-            document.getElementById('sheet-url-input').value = "";
-            document.getElementById('url-save-status').innerText = "URL cleared!";
-            setTimeout(() => { document.getElementById('url-save-status').innerText = ""; }, 3000);
-        }
+        tbody.innerHTML = stagedMatches.map((m, idx) => `
+            <tr>
+                <td><strong>${m.homeTeam}</strong> vs <strong>${m.visitTeam}</strong><br><small style="color:#94a3b8;">(${m.individualGames.length} frame rows parsed)</small></td>
+                <td>${m.scoreText}</td>
+                <td><span class="badge ${m.approved ? 'badge-approved' : 'badge-pending'}">${m.approved ? 'Approved' : 'Pending Review'}</span></td>
+                <td>
+                    <button class="btn" style="padding: 6px 12px; font-size: 0.75rem;" onclick="openReviewModal(${idx})">Review / Edit</button>
+                </td>
+            </tr>
+        `).join('');
 
-        // Helper to retrieve saved URL
-        function getSavedSheetUrl() {
-            return localStorage.getItem('backend_sheet_url') || "";
-        }
+        document.getElementById('batch-approve-btn').disabled = false;
+        document.getElementById('batch-approve-btn').style.opacity = '1';
+    }
 
-        // Tab switcher logic
-        function switchTab(evt, tabName) {
-            const contents = document.querySelectorAll('.tab-content');
-            contents.forEach(c => c.style.display = 'none');
-            document.getElementById(tabName).style.display = 'block';
-        }
+    function openReviewModal(idx) {
+        const match = stagedMatches[idx];
+        document.getElementById('edit-match-index').value = idx;
+        document.getElementById('edit-match-payload').value = match.payload;
+        
+        document.getElementById('edit-home-sig-preview').src = match.homeSig || '';
+        document.getElementById('edit-visit-sig-preview').src = match.visitSig || '';
 
-        // Updated Parser (Handles W, TR, 8BB, and NP)
-        function parseMatchDetails(payload) {
-            let homeTeam = "Unknown Home";
-            let visitTeam = "Unknown Visit";
-            let scoreText = "N/A";
-            let individualGames = [];
+        document.getElementById('review-modal').style.display = 'flex';
+    }
 
-            const htMatch = payload.match(/\[HT\]\s+(.*?)(?:\s*\((\d+)\))?$/m);
-            const vtMatch = payload.match(/\[VT\]\s+(.*?)(?:\s*\((\d+)\))?$/m);
+    function closeReviewModal() {
+        document.getElementById('review-modal').style.display = 'none';
+    }
 
-            if (htMatch) homeTeam = htMatch[1].trim();
-            if (vtMatch) visitTeam = vtMatch[1].trim();
+    function saveMatchEdits() {
+        const idx = document.getElementById('edit-match-index').value;
+        const newPayload = document.getElementById('edit-match-payload').value;
+        const parsed = parseMatchDetails(newPayload);
 
-            const hScoreMatch = payload.match(/\[HT\].*?\((\d+)\)/);
-            const vScoreMatch = payload.match(/\[VT\].*?\((\d+)\)/);
-            if (hScoreMatch && vScoreMatch) {
-                scoreText = `${hScoreMatch[1]} - ${vScoreMatch[1]}`;
-            }
+        stagedMatches[idx].payload = newPayload;
+        stagedMatches[idx].homeTeam = parsed.homeTeam;
+        stagedMatches[idx].visitTeam = parsed.visitTeam;
+        stagedMatches[idx].scoreText = parsed.scoreText;
+        stagedMatches[idx].individualGames = parsed.individualGames;
+        stagedMatches[idx].approved = true;
 
-            const lines = payload.split(/\r?\n/);
-            lines.forEach(line => {
-                const trimmed = line.trim();
-                const gameRowRegex = /^(?:(Gm\d+)\s+)?(.*?)\s+vs\s+(.*)$/i;
-                const matchResult = trimmed.match(gameRowRegex);
+        closeReviewModal();
+        renderStagedQueue();
+    }
 
-                if (matchResult) {
-                    const gameNum = matchResult[1] || "Gm";
-                    const homeRaw = matchResult[2].trim();
-                    const visitRaw = matchResult[3].trim();
+    function deleteStagedMatch() {
+        const idx = document.getElementById('edit-match-index').value;
+        stagedMatches.splice(idx, 1);
+        closeReviewModal();
+        renderStagedQueue();
+    }
 
-                    const homeWin = /\(W\)/i.test(homeRaw);
-                    const homeTR = /\(TR\)/i.test(homeRaw);
-                    const home8BB = /\(8BB\)/i.test(homeRaw);
-                    const homeNP = /\(NP\)/i.test(homeRaw);
-                    const homePlayer = homeRaw.replace(/\((W|TR|8BB|NP)\)/gi, '').trim();
+    function lockAndGenerateBatch() {
+    const unapproved = stagedMatches.filter(m => !m.approved);
+    if (unapproved.length > 0) {
+        if (!confirm(`You have ${unapproved.length} unapproved match(es). Lock and generate batch anyway?`)) return;
+    }
 
-                    const visitWin = /\(W\)/i.test(visitRaw);
-                    const visitTR = /\(TR\)/i.test(visitRaw);
-                    const visit8BB = /\(8BB\)/i.test(visitRaw);
-                    const visitNP = /\(NP\)/i.test(visitRaw);
-                    const visitPlayer = visitRaw.replace(/\((W|TR|8BB|NP)\)/gi, '').trim();
+    // Start with an empty array so column headers are NOT sent
+    let tsvRows = [];
+    
+    stagedMatches.forEach(m => {
+        const timestamp = new Date().toISOString();
+        const headerTitle = "8-BALL CASH LEAGUE";
+        const [hScore, vScore] = m.scoreText.includes('-') ? m.scoreText.split('-').map(s => s.trim()) : ["0", "0"];
 
-                    individualGames.push({
-                        gameNum, homePlayer, homeNP, homeWin, homeTR, home8BB,
-                        visitPlayer, visitNP, visitWin, visitTR, visit8BB
-                    });
-                }
-            });
+        m.individualGames.forEach(game => {
+            tsvRows.push([
+                timestamp,
+                headerTitle,
+                m.homeTeam,
+                hScore,
+                m.visitTeam,
+                vScore,
+                game.gameNum || "Gm",
+                game.homePlayer || "",
+                game.homeNP ? "Yes" : "No",
+                game.homeWin ? "Win" : "",
+                game.homeTR ? "TR" : "",
+                game.home8BB ? "8BB" : "",
+                game.visitPlayer || "",
+                game.visitNP ? "Yes" : "No",
+                game.visitWin ? "Win" : "",
+                game.visitTR ? "TR" : "",
+                game.visit8BB ? "8BB" : "",
+                m.homeSig || "",
+                m.visitSig || ""
+            ].join('\t'));
+        });
+    });
 
-            if (individualGames.length === 0) {
-                individualGames.push({
-                    gameNum: "Overall", homePlayer: homeTeam, visitPlayer: visitTeam,
-                    homeNP: false, homeWin: false, homeTR: false, home8BB: false,
-                    visitNP: false, visitWin: false, visitTR: false, visit8BB: false
-                });
-            }
+    finalizedTSV = tsvRows.join('\n');
+    document.getElementById('tsv-output-box').innerText = finalizedTSV;
 
-            return { homeTeam, visitTeam, scoreText, individualGames };
-        }
+    document.getElementById('send-sheet-btn').disabled = false;
+    document.getElementById('send-sheet-btn').style.opacity = '1';
 
-        // Lock & Generate Batch (Excludes repeating header titles)
-        function lockAndGenerateBatch() {
-            const unapproved = stagedMatches.filter(m => !m.approved);
-            if (unapproved.length > 0) {
-                if (!confirm(`You have ${unapproved.length} unapproved match(es). Lock and generate batch anyway?`)) return;
-            }
+    switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
+}
+    function copyTSVToClipboard() {
+        if (!finalizedTSV) { alert('No TSV payload available yet.'); return; }
+        navigator.clipboard.writeText(finalizedTSV).then(() => {
+            alert('TSV batch copied to clipboard successfully!');
+        });
+    }
 
-            let tsvRows = [];
-            
-            stagedMatches.forEach(m => {
-                const timestamp = new Date().toISOString();
-                const headerTitle = "8-BALL CASH LEAGUE";
-                const [hScore, vScore] = m.scoreText.includes('-') ? m.scoreText.split('-').map(s => s.trim()) : ["0", "0"];
+    async function sendDataToSheet() {
+    const url = document.getElementById('sheet-webhook-url').value.trim();
+    if (!url) { alert('Please configure your Google Sheet webhook endpoint in Tab 2.'); return; }
+    if (!finalizedTSV) { alert('No locked TSV batch available to send.'); return; }
 
-                m.individualGames.forEach(game => {
-                    tsvRows.push([
-                        timestamp,
-                        headerTitle,
-                        m.homeTeam,
-                        hScore,
-                        m.visitTeam,
-                        vScore,
-                        game.gameNum || "Gm",
-                        game.homePlayer || "",
-                        game.homeNP ? "Yes" : "No",
-                        game.homeWin ? "Win" : "",
-                        game.homeTR ? "TR" : "",
-                        game.home8BB ? "8BB" : "",
-                        game.visitPlayer || "",
-                        game.visitNP ? "Yes" : "No",
-                        game.visitWin ? "Win" : "",
-                        game.visitTR ? "TR" : "",
-                        game.visit8BB ? "8BB" : "",
-                        m.homeSig || "",
-                        m.visitSig || ""
-                    ].join('\t'));
-                });
-            });
+    document.getElementById('send-sheet-btn').innerText = 'SENDING...';
+    try {
+        await fetch(url, {
+            method: 'POST',
+            mode: 'no-cors', // Prevents Google Apps Script redirect CORS blocking
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: finalizedTSV
+        });
+        alert('Batch successfully sent to connected sheet!');
+        document.getElementById('send-sheet-btn').innerText = 'Sent Successfully!';
+    } catch (err) {
+        alert('Error sending batch to sheet: ' + err.message);
+        document.getElementById('send-sheet-btn').innerText = 'Send Batch to Connected Sheet';
+    }
+}
+</script>
 
-            finalizedTSV = tsvRows.join('\n');
-            document.getElementById('tsv-output-box').innerText = finalizedTSV;
-
-            document.getElementById('send-sheet-btn').disabled = false;
-            document.getElementById('send-sheet-btn').style.opacity = '1';
-
-            switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
-        }
-
-        function sendToGoogleSheet() {
-            const targetUrl = getSavedSheetUrl();
-            if (!targetUrl) {
-                alert("Please save a Google Sheet URL first.");
-                return;
-            }
-        }
-    </script>
 </body>
 </html>
