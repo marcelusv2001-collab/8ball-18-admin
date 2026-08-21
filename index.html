@@ -3,40 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Backend Match Hub</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.5; }
-        .control-panel { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 6px; }
-        .input-group { display: flex; gap: 8px; margin-top: 5px; }
-        input[type="text"] { flex: 1; padding: 8px; font-size: 14px; }
-        button { padding: 8px 12px; cursor: pointer; font-size: 14px; }
-        .btn-danger { background-color: #d9534f; color: white; border: none; }
-        .status-msg { font-size: 12px; margin-top: 4px; display: block; font-weight: bold; }
-        .tab-btn { padding: 10px 15px; margin-right: 5px; cursor: pointer; }
-        .tab-content { margin-top: 15px; }
-        #tsv-output-box { width: 100%; height: 150px; font-family: monospace; }
-    </style>
+    <title>Backend App</title>
 </head>
 <body>
 
-    <!-- Saved Sheet URL Settings Section -->
-    <div class="control-panel">
-        <label for="sheet-url-input" style="font-weight: bold; display: block;">
-            Google Sheet Web / CSV URL:
-        </label>
-        <div class="input-group">
-            <input 
-                type="text" 
-                id="sheet-url-input" 
-                placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=tsv" 
-            />
-            <button onclick="saveSheetUrl()">Save URL</button>
-            <button onclick="clearSheetUrl()" class="btn-danger">Clear</button>
-        </div>
-        <span id="url-save-status" class="status-msg" style="color: green;"></span>
+    <!-- Saved Sheet URL Input -->
+    <div>
+        <label for="sheet-url-input">Google Sheet Web / CSV URL:</label>
+        <input type="text" id="sheet-url-input" placeholder="Paste URL here">
+        <button onclick="saveSheetUrl()">Save URL</button>
+        <button onclick="clearSheetUrl()">Clear</button>
+        <span id="url-save-status"></span>
     </div>
 
-    <!-- Interface Controls & Tabs -->
+    <br>
+
+    <!-- Original Control Buttons & Navigation -->
     <div>
         <button class="tab-btn" onclick="switchTab(event, 'tab-staged')">Staged Matches</button>
         <button class="tab-btn" onclick="switchTab(event, 'tab-sheets')">Batch Output</button>
@@ -46,18 +28,16 @@
         <button onclick="lockAndGenerateBatch()">Lock & Generate Batch</button>
     </div>
 
-    <div id="tab-sheets" class="tab-content" style="display: none;">
-        <h3>Finalized TSV Batch</h3>
-        <textarea id="tsv-output-box" readonly></textarea>
-        <br>
-        <button id="send-sheet-btn" onclick="sendToGoogleSheet()" disabled style="opacity: 0.5;">Send to Google Sheet</button>
+    <div id="tab-sheets" class="tab-content">
+        <div id="tsv-output-box"></div>
+        <button id="send-sheet-btn" onclick="sendToGoogleSheet()">Send to Google Sheet</button>
     </div>
 
     <script>
         let stagedMatches = [];
         let finalizedTSV = "";
 
-        // Load saved URL from browser memory on startup
+        // Auto-load saved URL on startup
         document.addEventListener('DOMContentLoaded', () => {
             const savedUrl = localStorage.getItem('backend_sheet_url');
             if (savedUrl) {
@@ -65,49 +45,39 @@
             }
         });
 
-        // Save URL locally
+        // Save URL function
         function saveSheetUrl() {
             const urlInput = document.getElementById('sheet-url-input').value.trim();
             if (!urlInput) {
                 alert("Please enter a valid URL.");
                 return;
             }
-            
             localStorage.setItem('backend_sheet_url', urlInput);
-            
-            const statusLabel = document.getElementById('url-save-status');
-            statusLabel.style.color = "green";
-            statusLabel.innerText = "URL saved locally!";
-            setTimeout(() => { statusLabel.innerText = ""; }, 3000);
+            document.getElementById('url-save-status').innerText = "URL saved!";
+            setTimeout(() => { document.getElementById('url-save-status').innerText = ""; }, 3000);
         }
 
-        // Clear stored URL
+        // Clear URL function
         function clearSheetUrl() {
             localStorage.removeItem('backend_sheet_url');
             document.getElementById('sheet-url-input').value = "";
-            
-            const statusLabel = document.getElementById('url-save-status');
-            statusLabel.style.color = "red";
-            statusLabel.innerText = "URL cleared!";
-            setTimeout(() => { 
-                statusLabel.innerText = ""; 
-                statusLabel.style.color = "green";
-            }, 3000);
+            document.getElementById('url-save-status').innerText = "URL cleared!";
+            setTimeout(() => { document.getElementById('url-save-status').innerText = ""; }, 3000);
         }
 
-        // Get saved URL helper
+        // Helper to retrieve saved URL
         function getSavedSheetUrl() {
             return localStorage.getItem('backend_sheet_url') || "";
         }
 
-        // Tab navigation handler
+        // Tab switcher logic
         function switchTab(evt, tabName) {
             const contents = document.querySelectorAll('.tab-content');
             contents.forEach(c => c.style.display = 'none');
             document.getElementById(tabName).style.display = 'block';
         }
 
-        // Match Parser Function
+        // Updated Parser (Handles W, TR, 8BB, and NP)
         function parseMatchDetails(payload) {
             let homeTeam = "Unknown Home";
             let visitTeam = "Unknown Visit";
@@ -137,14 +107,12 @@
                     const homeRaw = matchResult[2].trim();
                     const visitRaw = matchResult[3].trim();
 
-                    // Extract flags for Home Player
                     const homeWin = /\(W\)/i.test(homeRaw);
                     const homeTR = /\(TR\)/i.test(homeRaw);
                     const home8BB = /\(8BB\)/i.test(homeRaw);
                     const homeNP = /\(NP\)/i.test(homeRaw);
                     const homePlayer = homeRaw.replace(/\((W|TR|8BB|NP)\)/gi, '').trim();
 
-                    // Extract flags for Visiting Player
                     const visitWin = /\(W\)/i.test(visitRaw);
                     const visitTR = /\(TR\)/i.test(visitRaw);
                     const visit8BB = /\(8BB\)/i.test(visitRaw);
@@ -152,26 +120,15 @@
                     const visitPlayer = visitRaw.replace(/\((W|TR|8BB|NP)\)/gi, '').trim();
 
                     individualGames.push({
-                        gameNum,
-                        homePlayer,
-                        homeNP,
-                        homeWin,
-                        homeTR,
-                        home8BB,
-                        visitPlayer,
-                        visitNP,
-                        visitWin,
-                        visitTR,
-                        visit8BB
+                        gameNum, homePlayer, homeNP, homeWin, homeTR, home8BB,
+                        visitPlayer, visitNP, visitWin, visitTR, visit8BB
                     });
                 }
             });
 
             if (individualGames.length === 0) {
                 individualGames.push({
-                    gameNum: "Overall",
-                    homePlayer: homeTeam,
-                    visitPlayer: visitTeam,
+                    gameNum: "Overall", homePlayer: homeTeam, visitPlayer: visitTeam,
                     homeNP: false, homeWin: false, homeTR: false, home8BB: false,
                     visitNP: false, visitWin: false, visitTR: false, visit8BB: false
                 });
@@ -180,7 +137,7 @@
             return { homeTeam, visitTeam, scoreText, individualGames };
         }
 
-        // Batch lock and row generator without headers
+        // Lock & Generate Batch (Excludes repeating header titles)
         function lockAndGenerateBatch() {
             const unapproved = stagedMatches.filter(m => !m.approved);
             if (unapproved.length > 0) {
@@ -220,12 +177,12 @@
             });
 
             finalizedTSV = tsvRows.join('\n');
-            document.getElementById('tsv-output-box').value = finalizedTSV;
+            document.getElementById('tsv-output-box').innerText = finalizedTSV;
 
             document.getElementById('send-sheet-btn').disabled = false;
             document.getElementById('send-sheet-btn').style.opacity = '1';
 
-            switchTab(null, 'tab-sheets');
+            switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
         }
 
         function sendToGoogleSheet() {
@@ -234,7 +191,6 @@
                 alert("Please save a Google Sheet URL first.");
                 return;
             }
-            // Add your web app POST/fetch logic here using targetUrl
         }
     </script>
 </body>
