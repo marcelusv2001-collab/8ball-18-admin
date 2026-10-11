@@ -304,6 +304,7 @@ function doGet(e) {
 <script>
     let stagedMatches = [];
     let finalizedTSV = "";
+    let fetchedSheetMatches = []; // Stores fetched current week matches for the dropdown
 
     function switchTab(evt, tabId) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -341,12 +342,18 @@ function doGet(e) {
         if (!url) { alert('Please enter an endpoint first.'); return; }
         updateSheetStatus('off', 'TESTING CONNECTION...');
         try {
-            await fetch(url, { method: 'GET', mode: 'no-cors' });
-            updateSheetStatus('success', 'CONNECTION REACHABLE');
-            alert('Endpoint reachable!');
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.status === 'success') {
+                updateSheetStatus('success', 'CONNECTION REACHABLE');
+                alert('Endpoint reachable and responding with valid JSON!');
+            } else {
+                updateSheetStatus('error', 'ERROR STATUS');
+                alert('Endpoint responded, but returned an error status.');
+            }
         } catch (err) {
             updateSheetStatus('error', 'CONNECTION FAILED');
-            alert('Could not reach endpoint. Check URL or CORS settings.');
+            alert('Could not reach endpoint. Check URL or ensure Apps Script is set to "Anyone".');
         }
     }
 
@@ -361,76 +368,75 @@ function doGet(e) {
     }
 
     function parseMatchDetails(payload) {
-    let homeTeam = "Unknown Home";
-    let visitTeam = "Unknown Visit";
-    let scoreText = "N/A";
-    let individualGames = [];
+        let homeTeam = "Unknown Home";
+        let visitTeam = "Unknown Visit";
+        let scoreText = "N/A";
+        let individualGames = [];
 
-   const htMatch = payload.match(/\[HT\]\s+(.+?)(?:\s*\((\d+)\))/);
-const vtMatch = payload.match(/\[VT\]\s+(.+?)(?:\s*\((\d+)\))/);
+        const htMatch = payload.match(/[HT]\s+(.+?)(?:\s*\((\d+)\))/);
+        const vtMatch = payload.match(/[VT]\s+(.+?)(?:\s*\((\d+)\))/);
 
-    if (htMatch) homeTeam = htMatch[1].trim();
-    if (vtMatch) visitTeam = vtMatch[1].trim();
+        if (htMatch) homeTeam = htMatch[1].trim();
+        if (vtMatch) visitTeam = vtMatch[1].trim();
 
-    const hScoreMatch = payload.match(/\[HT\].*?\((\d+)\)/);
-    const vScoreMatch = payload.match(/\[VT\].*?\((\d+)\)/);
-    if (hScoreMatch && vScoreMatch) {
-        scoreText = `${hScoreMatch[1]} - ${vScoreMatch[1]}`;
-    }
+        const hScoreMatch = payload.match(/[HT].*?\((\d+)\)/);
+        const vScoreMatch = payload.match(/[VT].*?\((\d+)\)/);
+        if (hScoreMatch && vScoreMatch) {
+            scoreText = `${hScoreMatch[1]} - ${vScoreMatch[1]}`;
+        }
 
-    const lines = payload.split(/\r?\n/);
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        const gameRowRegex = /^(?:(Gm\d+)\s+)?(.*?)\s+vs\s+(.*)$/i;
-        const matchResult = trimmed.match(gameRowRegex);
+        const lines = payload.split(/\r?\n/);
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            const gameRowRegex = /^(?:(Gm\d+)\s+)?(.*?)\s+vs\s+(.*)$/i;
+            const matchResult = trimmed.match(gameRowRegex);
 
-        if (matchResult) {
-            const gameNum = matchResult[1] || "Gm";
-            const homeRaw = matchResult[2].trim();
-            const visitRaw = matchResult[3].trim();
+            if (matchResult) {
+                const gameNum = matchResult[1] || "Gm";
+                const homeRaw = matchResult[2].trim();
+                const visitRaw = matchResult[3].trim();
 
-            // Extract flags for Home Player
-            const homeWin = /\(W\)/i.test(homeRaw);
-            const homeTR = /\(TR\)/i.test(homeRaw);
-            const home8BB = /\(8BB\)/i.test(homeRaw);
-            const homeNP = /\(NP\)/i.test(homeRaw); // New Player flag
-            const homePlayer = homeRaw.replace(/\((W|TR|8BB|NP)\)/gi, '').trim();
+                const homeWin = /\(W\)/i.test(homeRaw);
+                const homeTR = /\(TR\)/i.test(homeRaw);
+                const home8BB = /\(8BB\)/i.test(homeRaw);
+                const homeNP = /\(NP\)/i.test(homeRaw);
+                const homePlayer = homeRaw.replace(/\((W\vert{}TR\vert{}8BB\vert{}NP)\)/gi, '').trim();
 
-            // Extract flags for Visiting Player
-            const visitWin = /\(W\)/i.test(visitRaw);
-            const visitTR = /\(TR\)/i.test(visitRaw);
-            const visit8BB = /\(8BB\)/i.test(visitRaw);
-            const visitNP = /\(NP\)/i.test(visitRaw); // New Player flag
-            const visitPlayer = visitRaw.replace(/\((W|TR|8BB|NP)\)/gi, '').trim();
+                const visitWin = /\(W\)/i.test(visitRaw);
+                const visitTR = /\(TR\)/i.test(visitRaw);
+                const visit8BB = /\(8BB\)/i.test(visitRaw);
+                const visitNP = /\(NP\)/i.test(visitRaw);
+                const visitPlayer = visitRaw.replace(/\((W\vert{}TR\vert{}8BB\vert{}NP)\)/gi, '').trim();
 
+                individualGames.push({
+                    gameNum,
+                    homePlayer,
+                    homeNP,
+                    homeWin,
+                    homeTR,
+                    home8BB,
+                    visitPlayer,
+                    visitNP,
+                    visitWin,
+                    visitTR,
+                    visit8BB
+                });
+            }
+        });
+
+        if (individualGames.length === 0) {
             individualGames.push({
-                gameNum,
-                homePlayer,
-                homeNP,
-                homeWin,
-                homeTR,
-                home8BB,
-                visitPlayer,
-                visitNP,
-                visitWin,
-                visitTR,
-                visit8BB
+                gameNum: "Overall",
+                homePlayer: homeTeam,
+                visitPlayer: visitTeam,
+                homeNP: false, homeWin: false, homeTR: false, home8BB: false,
+                visitNP: false, visitWin: false, visitTR: false, visit8BB: false
             });
         }
-    });
 
-    if (individualGames.length === 0) {
-        individualGames.push({
-            gameNum: "Overall",
-            homePlayer: homeTeam,
-            visitPlayer: visitTeam,
-            homeNP: false, homeWin: false, homeTR: false, home8BB: false,
-            visitNP: false, visitWin: false, visitTR: false, visit8BB: false
-        });
+        return { homeTeam, visitTeam, scoreText, individualGames };
     }
 
-    return { homeTeam, visitTeam, scoreText, individualGames };
-}
     function stageMatch() {
         const payload = document.getElementById('input-payload').value.trim();
         const homeSig = document.getElementById('input-home-sig').value.trim();
@@ -460,36 +466,70 @@ const vtMatch = payload.match(/\[VT\]\s+(.+?)(?:\s*\((\d+)\))/);
         document.getElementById('input-visit-sig').value = '';
 
         renderStagedQueue();
-    }
-async function fetchLatestFromSheet() {
-    const url = document.getElementById('sheet-webhook-url').value.trim();
-    if (!url) {
-        alert('Please configure and save your Google Sheet web app URL in Tab 2 first.');
-        return;
+        alert('Match added to queue successfully!');
     }
 
-    try {
-        alert('Fetching latest matches from Google Sheet...');
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.status === 'success' && data.matches && data.matches.length > 0) {
-            // Grab the most recent match from the array
-            const latest = data.matches[data.matches.length - 1];
-            
-            // Populate the text payload, home signature, and visiting signature automatically
-            document.getElementById('input-payload').value = latest.payload;
-            document.getElementById('input-home-sig').value = latest.homeSig || '';
-            document.getElementById('input-visit-sig').value = latest.visitSig || '';
-
-            alert('Successfully loaded latest match into the staging form!');
-        } else {
-            alert('No matches found in the listener sheet yet.');
+    // --- Rolling 7-Day Window Fetch & Dropdown Population ---
+    async function fetchCurrentWeekMatches() {
+        const url = document.getElementById('sheet-webhook-url').value.trim();
+        if (!url) {
+            alert('Please configure and save your Google Apps Script Web App URL in Tab 2 first.');
+            return;
         }
-    } catch (err) {
-        alert('Error fetching from Google Sheet: ' + err.message + '\nNote: Ensure your web app URL is correct and deployed with access set to "Anyone".');
+
+        try {
+            alert('Fetching current week matches from Google Sheet...');
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.status === 'success' && data.matches && data.matches.length > 0) {
+                const now = new Date();
+                const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)); // Rolling 7-day window
+
+                fetchedSheetMatches = data.matches.filter(m => {
+                    if (!m.timestamp) return true;
+                    const matchDate = new Date(m.timestamp);
+                    return matchDate >= oneWeekAgo;
+                });
+
+                const dropdown = document.getElementById('sheet-match-dropdown');
+                dropdown.innerHTML = '<option value="">-- Select a match --</option>';
+
+                if (fetchedSheetMatches.length === 0) {
+                    alert('No matches found from the current week (last 7 days).');
+                    document.getElementById('match-selector-container').style.display = 'none';
+                    return;
+                }
+
+                fetchedSheetMatches.forEach((m, index) => {
+                    const opt = document.createElement('option');
+                    opt.value = index;
+                    opt.text = `${m.homeTeam} vs ${m.visitTeam} (${new Date(m.timestamp).toLocaleDateString()})`;
+                    dropdown.appendChild(opt);
+                });
+
+                document.getElementById('match-selector-container').style.display = 'block';
+                alert(`Loaded ${fetchedSheetMatches.length} current week match(es)! Select one from the dropdown below.`);
+            } else {
+                alert('No matches found in the listener sheet.');
+            }
+        } catch (err) {
+            alert('Error fetching from Google Sheet: ' + err.message);
+        }
     }
-}
+
+    function loadSelectedSheetMatch() {
+        const index = document.getElementById('sheet-match-dropdown').value;
+        if (index === "") return;
+
+        const selected = fetchedSheetMatches[index];
+        if (selected) {
+            document.getElementById('input-payload').value = selected.payload;
+            document.getElementById('input-home-sig').value = selected.homeSig || '';
+            document.getElementById('input-visit-sig').value = selected.visitSig || '';
+        }
+    }
+
     function renderStagedQueue() {
         const tbody = document.getElementById('staged-matches-body');
         if (stagedMatches.length === 0) {
@@ -553,52 +593,52 @@ async function fetchLatestFromSheet() {
     }
 
     function lockAndGenerateBatch() {
-    const unapproved = stagedMatches.filter(m => !m.approved);
-    if (unapproved.length > 0) {
-        if (!confirm(`You have ${unapproved.length} unapproved match(es). Lock and generate batch anyway?`)) return;
+        const unapproved = stagedMatches.filter(m => !m.approved);
+        if (unapproved.length > 0) {
+            if (!confirm(`You have ${unapproved.length} unapproved match(es). Lock and generate batch anyway?`)) return;
+        }
+
+        let tsvRows = [];
+        
+        stagedMatches.forEach(m => {
+            const timestamp = new Date().toISOString();
+            const headerTitle = "8-BALL CASH LEAGUE";
+            const [hScore, vScore] = m.scoreText.includes('-') ? m.scoreText.split('-').map(s => s.trim()) : ["0", "0"];
+
+            m.individualGames.forEach(game => {
+                tsvRows.push([
+                    timestamp,
+                    headerTitle,
+                    m.homeTeam,
+                    hScore,
+                    m.visitTeam,
+                    vScore,
+                    game.gameNum || "Gm",
+                    game.homePlayer || "",
+                    game.homeNP ? "Yes" : "No",
+                    game.homeWin ? "Win" : "",
+                    game.homeTR ? "TR" : "",
+                    game.home8BB ? "8BB" : "",
+                    game.visitPlayer || "",
+                    game.visitNP ? "Yes" : "No",
+                    game.visitWin ? "Win" : "",
+                    game.visitTR ? "TR" : "",
+                    game.visit8BB ? "8BB" : "",
+                    m.homeSig || "",
+                    m.visitSig || ""
+                ].join('\t'));
+            });
+        });
+
+        finalizedTSV = tsvRows.join('\n');
+        document.getElementById('tsv-output-box').innerText = finalizedTSV;
+
+        document.getElementById('send-sheet-btn').disabled = false;
+        document.getElementById('send-sheet-btn').style.opacity = '1';
+
+        switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
     }
 
-    // Start with an empty array so column headers are NOT sent
-    let tsvRows = [];
-    
-    stagedMatches.forEach(m => {
-        const timestamp = new Date().toISOString();
-        const headerTitle = "8-BALL CASH LEAGUE";
-        const [hScore, vScore] = m.scoreText.includes('-') ? m.scoreText.split('-').map(s => s.trim()) : ["0", "0"];
-
-        m.individualGames.forEach(game => {
-            tsvRows.push([
-                timestamp,
-                headerTitle,
-                m.homeTeam,
-                hScore,
-                m.visitTeam,
-                vScore,
-                game.gameNum || "Gm",
-                game.homePlayer || "",
-                game.homeNP ? "Yes" : "No",
-                game.homeWin ? "Win" : "",
-                game.homeTR ? "TR" : "",
-                game.home8BB ? "8BB" : "",
-                game.visitPlayer || "",
-                game.visitNP ? "Yes" : "No",
-                game.visitWin ? "Win" : "",
-                game.visitTR ? "TR" : "",
-                game.visit8BB ? "8BB" : "",
-                m.homeSig || "",
-                m.visitSig || ""
-            ].join('\t'));
-        });
-    });
-
-    finalizedTSV = tsvRows.join('\n');
-    document.getElementById('tsv-output-box').innerText = finalizedTSV;
-
-    document.getElementById('send-sheet-btn').disabled = false;
-    document.getElementById('send-sheet-btn').style.opacity = '1';
-
-    switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
-}
     function copyTSVToClipboard() {
         if (!finalizedTSV) { alert('No TSV payload available yet.'); return; }
         navigator.clipboard.writeText(finalizedTSV).then(() => {
@@ -607,27 +647,26 @@ async function fetchLatestFromSheet() {
     }
 
     async function sendDataToSheet() {
-    const url = document.getElementById('sheet-webhook-url').value.trim();
-    if (!url) { alert('Please configure your Google Sheet webhook endpoint in Tab 2.'); return; }
-    if (!finalizedTSV) { alert('No locked TSV batch available to send.'); return; }
+        const url = document.getElementById('sheet-webhook-url').value.trim();
+        if (!url) { alert('Please configure your Google Sheet webhook endpoint in Tab 2.'); return; }
+        if (!finalizedTSV) { alert('No locked TSV batch available to send.'); return; }
 
-    document.getElementById('send-sheet-btn').innerText = 'SENDING...';
-    try {
-        await fetch(url, {
-            method: 'POST',
-            mode: 'no-cors', // Prevents Google Apps Script redirect CORS blocking
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: finalizedTSV
-        });
-        alert('Batch successfully sent to connected sheet!');
-        document.getElementById('send-sheet-btn').innerText = 'Sent Successfully!';
-    } catch (err) {
-        alert('Error sending batch to sheet: ' + err.message);
-        document.getElementById('send-sheet-btn').innerText = 'Send Batch to Connected Sheet';
+        document.getElementById('send-sheet-btn').innerText = 'SENDING...';
+        try {
+            await fetch(url, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: finalizedTSV
+            });
+            alert('Batch successfully sent to connected sheet!');
+            document.getElementById('send-sheet-btn').innerText = 'Sent Successfully!';
+        } catch (err) {
+            alert('Error sending batch to sheet: ' + err.message);
+            document.getElementById('send-sheet-btn').innerText = 'Send Batch to Connected Sheet';
+        }
     }
-}
 </script>
- <!-- Your existing page content ends here -->
 
 <footer>
   <style>
@@ -661,11 +700,6 @@ async function fetchLatestFromSheet() {
     <a href="/privacy.html">Privacy Policy</a>
   </nav>
 </footer>
-
-
-
-</body>
-</html>
 
 </body>
 </html>
