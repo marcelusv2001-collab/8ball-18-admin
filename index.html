@@ -132,10 +132,19 @@
 <div id="tab-submission" class="tab-content active">
     <div class="card">
         <h2>📥 Import Raw Match Payload</h2>
-        <p style="font-size: 0.85rem; color: #94a3b8;">Paste your complete match message payload below or fetch it directly from your connected Google Sheet.</p>
+        <p style="font-size: 0.85rem; color: #94a3b8;">Fetch current week's matches directly from your connected Google Sheet.</p>
         
-        <!-- NEW: Fetch button to automatically pull from Google Sheet -->
-        <button class="btn btn-secondary" onclick="fetchLatestFromSheet()" style="margin-bottom: 15px;">Fetch Latest Match from Sheet</button>
+        <!-- NEW: Fetch button & dynamic match selector dropdown -->
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <button class="btn btn-secondary" onclick="fetchCurrentWeekMatches()" style="flex: 1;">Fetch Current Week's Matches</button>
+        </div>
+
+        <div id="match-selector-container" style="display: none; margin-bottom: 15px;">
+            <label style="color: var(--gold);">Select a Match to Load:</label>
+            <select id="sheet-match-dropdown" class="form-control" onchange="loadSelectedSheetMatch()" style="width: 100%; padding: 8px; background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 4px; margin-top: 5px;">
+                <option value="">-- Select a match --</option>
+            </select>
+        </div>
 
         <label>Raw Match Text Payload</label>
         <textarea id="input-payload" rows="6" placeholder="8-BALL CASH LEAGUE&#10;[HT] TEAM ALPHA (12)&#10;[VT] TEAM BETA (6)&#10;&#10;Gm1 PlayerA (W) vs PlayerB (TR)&#10;Gm2 PlayerC vs PlayerD (8BB)"></textarea>
