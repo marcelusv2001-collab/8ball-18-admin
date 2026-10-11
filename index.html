@@ -132,8 +132,11 @@
 <div id="tab-submission" class="tab-content active">
     <div class="card">
         <h2>📥 Import Raw Match Payload</h2>
-        <p style="font-size: 0.85rem; color: #94a3b8;">Paste your complete match message payload below. Team names, scores, individual matches, and types are parsed automatically.</p>
+        <p style="font-size: 0.85rem; color: #94a3b8;">Paste your complete match message payload below or fetch it directly from your connected Google Sheet.</p>
         
+        <!-- NEW: Fetch button to automatically pull from Google Sheet -->
+        <button class="btn btn-secondary" onclick="fetchLatestFromSheet()" style="margin-bottom: 15px;">Fetch Latest Match from Sheet</button>
+
         <label>Raw Match Text Payload</label>
         <textarea id="input-payload" rows="6" placeholder="8-BALL CASH LEAGUE&#10;[HT] TEAM ALPHA (12)&#10;[VT] TEAM BETA (6)&#10;&#10;Gm1 PlayerA (W) vs PlayerB (TR)&#10;Gm2 PlayerC vs PlayerD (8BB)"></textarea>
         
@@ -449,7 +452,35 @@ const vtMatch = payload.match(/\[VT\]\s+(.+?)(?:\s*\((\d+)\))/);
 
         renderStagedQueue();
     }
+async function fetchLatestFromSheet() {
+    const url = document.getElementById('sheet-webhook-url').value.trim();
+    if (!url) {
+        alert('Please configure and save your Google Sheet web app URL in Tab 2 first.');
+        return;
+    }
 
+    try {
+        alert('Fetching latest matches from Google Sheet...');
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.status === 'success' && data.matches && data.matches.length > 0) {
+            // Grab the most recent match from the array
+            const latest = data.matches[data.matches.length - 1];
+            
+            // Populate the text payload, home signature, and visiting signature automatically
+            document.getElementById('input-payload').value = latest.payload;
+            document.getElementById('input-home-sig').value = latest.homeSig || '';
+            document.getElementById('input-visit-sig').value = latest.visitSig || '';
+
+            alert('Successfully loaded latest match into the staging form!');
+        } else {
+            alert('No matches found in the listener sheet yet.');
+        }
+    } catch (err) {
+        alert('Error fetching from Google Sheet: ' + err.message + '\nNote: Ensure your web app URL is correct and deployed with access set to "Anyone".');
+    }
+}
     function renderStagedQueue() {
         const tbody = document.getElementById('staged-matches-body');
         if (stagedMatches.length === 0) {
