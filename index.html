@@ -354,8 +354,8 @@ function doGet(e) {
     let scoreText = "N/A";
     let individualGames = [];
 
-    const htMatch = payload.match(/\[HT\]\s+(.*?)(?:\s*\((\d+)\))?$/m);
-    const vtMatch = payload.match(/\[VT\]\s+(.*?)(?:\s*\((\d+)\))?$/m);
+   const htMatch = payload.match(/\[HT\]\s+(.+?)(?:\s*\((\d+)\))/);
+const vtMatch = payload.match(/\[VT\]\s+(.+?)(?:\s*\((\d+)\))/);
 
     if (htMatch) homeTeam = htMatch[1].trim();
     if (vtMatch) visitTeam = vtMatch[1].trim();
