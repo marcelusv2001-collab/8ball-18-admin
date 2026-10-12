@@ -596,7 +596,20 @@
   }
   throw new Error(result.message);
 }
-    
+
+    async function processMatchSubmission(leagueCode, matchData) {
+  // Automatically fetches the target endpoint from Column J of the Central DB
+  const targetEndpoint = await loadLeagueEndpoint(leagueCode);
+  
+  // Send your processed data to that endpoint
+  const response = await fetch(targetEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(matchData)
+  });
+  
+  return await response.json();
+}
     async function sendDataToSheet() {
         if (!resolvedListenerUrl) { alert('Please connect to a league first.'); return; }
         if (!finalizedTSV) { alert('No locked TSV batch available to send.'); return; }
