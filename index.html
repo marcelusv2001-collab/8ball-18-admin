@@ -442,8 +442,6 @@
     try {
         alert('Fetching current week matches from Google Sheet...');
         
-        // To bypass strict browser CORS on GitHub Pages without a server, 
-        // we call the Apps Script URL. If CORS blocks it, we provide a direct copy-paste fallback.
         const response = await fetch(resolvedListenerUrl, {
             method: 'GET',
             redirect: 'follow'
@@ -465,7 +463,7 @@
             dropdown.innerHTML = '<option value="">-- Select a match --</option>';
 
             if (fetchedSheetMatches.length === 0) {
-                fetchedSheetMatches = data.matches; // Fallback to all matches if 7-day window is empty
+                fetchedSheetMatches = data.matches; // Fallback to all matches if none are within 7 days
             }
 
             fetchedSheetMatches.forEach((m, index) => {
@@ -481,9 +479,9 @@
             alert('No matches found in the listener sheet.');
         }
     } catch (err) {
-        // If CORS blocks it directly from GitHub Pages domain, give the user a clean alternative to view/copy data
-        console.warn("CORS block encountered. Opening direct link option.");
-        if (confirm("Browser security (CORS) blocked direct reading from GitHub Pages. Would you like to open the raw JSON link in a new tab to copy/paste the payload instead?")) {
+        // Browser security (CORS) blocks background reading from GitHub Pages domains. 
+        // This provides an immediate, frictionless fallback window to grab the payload.
+        if (confirm("Browser security (CORS) prevented direct background reading from GitHub Pages. Click OK to open your listener feed in a new tab where you can view/copy your matches instantly.")) {
             window.open(resolvedListenerUrl, '_blank');
         }
     }
