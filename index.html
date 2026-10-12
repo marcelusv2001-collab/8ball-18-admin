@@ -432,7 +432,7 @@
         alert('Match added to queue successfully!');
     }
 
-    async function fetchCurrentWeekMatches() {
+   async function fetchCurrentWeekMatches() {
     if (!resolvedListenerUrl) {
         alert('Please connect to a league first.');
         switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
@@ -442,10 +442,11 @@
     try {
         alert('Fetching current week matches from Google Sheet...');
         
-        // Using standard fetch with CORS mode
+        // To bypass strict browser CORS on GitHub Pages without a server, 
+        // we call the Apps Script URL. If CORS blocks it, we provide a direct copy-paste fallback.
         const response = await fetch(resolvedListenerUrl, {
             method: 'GET',
-            mode: 'cors'
+            redirect: 'follow'
         });
         
         const data = await response.json();
@@ -464,14 +465,13 @@
             dropdown.innerHTML = '<option value="">-- Select a match --</option>';
 
             if (fetchedSheetMatches.length === 0) {
-                alert('No matches found from the current week (last 7 days). Showing all available matches instead.');
-                fetchedSheetMatches = data.matches; // Fallback to all if 7-day is empty
+                fetchedSheetMatches = data.matches; // Fallback to all matches if 7-day window is empty
             }
 
             fetchedSheetMatches.forEach((m, index) => {
                 const opt = document.createElement('option');
                 opt.value = index;
-                opt.text = `${m.homeTeam} vs ${m.visitTeam} (${new Date(m.timestamp).toLocaleDateString()})`;
+                opt.text = `${m.homeTeam} vs ${m.visitTeam} (${m.timestamp ? new Date(m.timestamp).toLocaleDateString() : 'Recent'})`;
                 dropdown.appendChild(opt);
             });
 
@@ -481,10 +481,13 @@
             alert('No matches found in the listener sheet.');
         }
     } catch (err) {
-        alert('Error fetching from Google Sheet: ' + err.message + '\n\nTip: If CORS persists, ensure your script deployment version was updated to a "New version".');
+        // If CORS blocks it directly from GitHub Pages domain, give the user a clean alternative to view/copy data
+        console.warn("CORS block encountered. Opening direct link option.");
+        if (confirm("Browser security (CORS) blocked direct reading from GitHub Pages. Would you like to open the raw JSON link in a new tab to copy/paste the payload instead?")) {
+            window.open(resolvedListenerUrl, '_blank');
+        }
     }
 }
-
     function loadSelectedSheetMatch() {
         const index = document.getElementById('sheet-match-dropdown').value;
         if (index === "") return;
