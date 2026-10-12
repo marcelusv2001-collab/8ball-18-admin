@@ -293,37 +293,38 @@
     });
 
     async function resolveLeagueEndpoint() {
-        const centralUrl = document.getElementById('central-db-url').value.trim();
-        const code = document.getElementById('league-code-input').value.trim();
+    const centralUrl = document.getElementById('central-db-url').value.trim();
+    const code = document.getElementById('league-code-input').value.trim();
 
-        if (!centralUrl) { alert('Please enter the Central Database URL.'); return; }
-        if (code.length !== 6) { alert('League code must be exactly 6 digits.'); return; }
+    if (!centralUrl) { alert('Please enter the Central Database URL.'); return; }
+    if (code.length !== 6) { alert('League code must be exactly 6 digits.'); return; }
 
-        updateSheetStatus('off', 'FETCHING LINK FROM CENTRAL DB...');
+    updateSheetStatus('off', 'FETCHING MAIN SHEET WEBHOOK FROM CENTRAL DB...');
 
-        try {
-            const response = await fetch(`${centralUrl}?action=getLeague&code=${code}`);
-            const data = await response.json();
+    try {
+        const response = await fetch(`${centralUrl}?action=getLeague&code=${code}`);
+        const data = await response.json();
 
-            if (data.status === 'success' && data.webhookUrl) {
-                resolvedListenerUrl = data.webhookUrl;
-                
-                localStorage.setItem('central_db_url', centralUrl);
-                localStorage.setItem('league_code', code);
-                localStorage.setItem('resolved_listener_url', resolvedListenerUrl);
+        if (data.status === 'success' && (data.mainSheetWebhook || data.webhookUrl)) {
+            // Assign the Main Sheet Webhook endpoint
+            resolvedListenerUrl = data.mainSheetWebhook || data.webhookUrl;
+            document.getElementById('resolved-listener-display').value = resolvedListenerUrl;
+            
+            localStorage.setItem('central_db_url', centralUrl);
+            localStorage.setItem('league_code', code);
+            localStorage.setItem('resolved_listener_url', resolvedListenerUrl);
 
-                updateSheetStatus('success', 'CONNECTED (CODE: ' + code + ')');
-                alert(`Successfully linked! Fetched webhook link for: ${data.leagueName || code}`);
-            } else {
-                updateSheetStatus('error', 'CODE NOT FOUND');
-                alert('League code was not found in the central database.');
-            }
-        } catch (err) {
-            updateSheetStatus('error', 'FETCH FAILED');
-            alert('Could not reach central database: ' + err.message);
+            updateSheetStatus('success', 'CONNECTED (CODE: ' + code + ')');
+            alert(`Successfully linked! Main Sheet Webhook hooked up for: ${data.leagueName || code}`);
+        } else {
+            updateSheetStatus('error', 'CODE NOT FOUND');
+            alert('League code was not found in the central database.');
         }
+    } catch (err) {
+        updateSheetStatus('error', 'FETCH FAILED');
+        alert('Could not reach central database: ' + err.message);
     }
-
+}
     function clearLeagueConnection() {
         if (!confirm('Are you sure you want to clear the current league connection and enter a new code?')) return;
 
