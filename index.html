@@ -433,52 +433,57 @@
     }
 
     async function fetchCurrentWeekMatches() {
-        if (!resolvedListenerUrl) {
-            alert('Please enter your 6-digit League Code in Tab 2 and click "Connect via League Code" first.');
-            switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
-            return;
-        }
-
-        try {
-            alert('Fetching current week matches from Google Sheet...');
-            const response = await fetch(resolvedListenerUrl);
-            const data = await response.json();
-
-            if (data.status === 'success' && data.matches && data.matches.length > 0) {
-                const now = new Date();
-                const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-
-                fetchedSheetMatches = data.matches.filter(m => {
-                    if (!m.timestamp) return true;
-                    const matchDate = new Date(m.timestamp);
-                    return matchDate >= oneWeekAgo;
-                });
-
-                const dropdown = document.getElementById('sheet-match-dropdown');
-                dropdown.innerHTML = '<option value="">-- Select a match --</option>';
-
-                if (fetchedSheetMatches.length === 0) {
-                    alert('No matches found from the current week (last 7 days).');
-                    document.getElementById('match-selector-container').style.display = 'none';
-                    return;
-                }
-
-                fetchedSheetMatches.forEach((m, index) => {
-                    const opt = document.createElement('option');
-                    opt.value = index;
-                    opt.text = `${m.homeTeam} vs ${m.visitTeam} (${new Date(m.timestamp).toLocaleDateString()})`;
-                    dropdown.appendChild(opt);
-                });
-
-                document.getElementById('match-selector-container').style.display = 'block';
-                alert(`Loaded ${fetchedSheetMatches.length} current week match(es)! Select one from the dropdown below.`);
-            } else {
-                alert('No matches found in the listener sheet.');
-            }
-        } catch (err) {
-            alert('Error fetching from Google Sheet: ' + err.message);
-        }
+    if (!resolvedListenerUrl) {
+        alert('Please connect to a league first.');
+        switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
+        return;
     }
+
+    try {
+        alert('Fetching current week matches from Google Sheet...');
+        
+        // Using standard fetch with CORS mode
+        const response = await fetch(resolvedListenerUrl, {
+            method: 'GET',
+            mode: 'cors'
+        });
+        
+        const data = await response.json();
+
+        if (data.status === 'success' && data.matches && data.matches.length > 0) {
+            const now = new Date();
+            const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+            fetchedSheetMatches = data.matches.filter(m => {
+                if (!m.timestamp) return true;
+                const matchDate = new Date(m.timestamp);
+                return matchDate >= oneWeekAgo;
+            });
+
+            const dropdown = document.getElementById('sheet-match-dropdown');
+            dropdown.innerHTML = '<option value="">-- Select a match --</option>';
+
+            if (fetchedSheetMatches.length === 0) {
+                alert('No matches found from the current week (last 7 days). Showing all available matches instead.');
+                fetchedSheetMatches = data.matches; // Fallback to all if 7-day is empty
+            }
+
+            fetchedSheetMatches.forEach((m, index) => {
+                const opt = document.createElement('option');
+                opt.value = index;
+                opt.text = `${m.homeTeam} vs ${m.visitTeam} (${new Date(m.timestamp).toLocaleDateString()})`;
+                dropdown.appendChild(opt);
+            });
+
+            document.getElementById('match-selector-container').style.display = 'block';
+            alert(`Loaded ${fetchedSheetMatches.length} match(es)! Select one from the dropdown below.`);
+        } else {
+            alert('No matches found in the listener sheet.');
+        }
+    } catch (err) {
+        alert('Error fetching from Google Sheet: ' + err.message + '\n\nTip: If CORS persists, ensure your script deployment version was updated to a "New version".');
+    }
+}
 
     function loadSelectedSheetMatch() {
         const index = document.getElementById('sheet-match-dropdown').value;
