@@ -132,7 +132,7 @@
 <div id="tab-submission" class="tab-content active">
     <div class="card">
         <h2>📥 Import Raw Match Payload</h2>
-        <p style="font-size: 0.85rem; color: #94a3b8;">Fetch current week's matches directly from your connected Google Sheet.</p>
+        <p style="font-size: 0.85rem; color: #94a3b8;">Fetch current week's matches directly from your connected Listener Sheet (Col I).</p>
         
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
             <button class="btn btn-secondary" onclick="fetchCurrentWeekMatches()" style="flex: 1;">Fetch Current Week's Matches</button>
@@ -201,12 +201,12 @@
 
     <div class="card">
         <h2>📤 Batch TSV Payload Generator</h2>
-        <p style="font-size: 0.85rem; color: #94a3b8;">Approved match lines are packaged cleanly into individual row items with discrete columns.</p>
+        <p style="font-size: 0.85rem; color: #94a3b8;">Approved match lines are packaged cleanly into individual row items sent to the Main Sheet (Col J: approved matches).</p>
         <label>Generated TSV Data Stream</label>
         <pre id="tsv-output-box"># Staged data will appear here after batch approval...</pre>
         <div style="display: flex; gap: 10px; margin-top: 15px;">
             <button class="btn btn-secondary" onclick="copyTSVToClipboard()">Copy TSV to Clipboard</button>
-            <button class="btn" id="send-sheet-btn" onclick="sendDataToSheet()" disabled style="opacity: 0.5;">Send Batch to Connected Sheet</button>
+            <button class="btn" id="send-sheet-btn" onclick="sendDataToSheet()" disabled style="opacity: 0.5;">Send Batch to Main Sheet</button>
         </div>
     </div>
 </div>
@@ -248,10 +248,11 @@
         <div class="help-section">
             <h3>1. How to Process Matches</h3>
             <ul>
-                <li><strong>Fetch or Paste Payload:</strong> Click "Fetch Current Week's Matches" or paste a raw score payload in Tab 1.</li>
+                <li><strong>Fetch or Paste Payload:</strong> Click "Fetch Current Week's Matches" (pulls from Listener Sheet via Col I) or paste a raw score payload in Tab 1.</li>
                 <li><strong>Add Signatures:</strong> Paste Base64 signature strings if available.</li>
                 <li><strong>Review & Approve:</strong> Edit parsed details and click <strong>Save & Approve</strong>.</li>
                 <li><strong>Lock Batch:</strong> Click <strong>Lock Batch for Export</strong> to generate the TSV stream.</li>
+                <li><strong>Send to Main Sheet:</strong> Sends payload to Main Sheet (Col J: approved matches).</li>
             </ul>
         </div>
         <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
@@ -267,7 +268,8 @@
     let stagedMatches = [];
     let finalizedTSV = "";
     let fetchedSheetMatches = [];
-    let resolvedListenerUrl = "";
+    let resolvedListenerUrl = ""; // Col I: Listener Sheet URL for fetching data
+    let resolvedMainUrl = "";     // Col J: Main Sheet URL for sending data
 
     function switchTab(evt, tabId) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -281,45 +283,46 @@
 
     window.addEventListener('DOMContentLoaded', () => {
         const savedCode = localStorage.getItem('league_code');
-        const savedResolvedUrl = localStorage.getItem('resolved_listener_url');
+        const savedListenerUrl = localStorage.getItem('resolved_listener_url');
+        const savedMainUrl = localStorage.getItem('resolved_main_url');
         
         if (savedCode) document.getElementById('league-code-input').value = savedCode;
-        if (savedResolvedUrl) {
-            resolvedListenerUrl = savedResolvedUrl;
+        if (savedListenerUrl && savedMainUrl) {
+            resolvedListenerUrl = savedListenerUrl;
+            resolvedMainUrl = savedMainUrl;
             updateSheetStatus('success', 'CONNECTED (CODE: ' + savedCode + ')');
         }
     });
-
-    async function loadLeagueEndpoint(leagueCode) {
-        const response = await fetch(`${CENTRAL_DB_URL}?action=getConfig&code=${leagueCode}`);
-        const result = await response.json();
-        if (result.status === 'success') {
-            return result.backendTargetEndpoint; // Grabs the URL from Column J
-        }
-        throw new Error(result.message || 'League code not found.');
-    }
 
     async function resolveLeagueEndpoint() {
         const code = document.getElementById('league-code-input').value.trim();
 
         if (code.length !== 6) { alert('League code must be exactly 6 digits.'); return; }
 
-        updateSheetStatus('off', 'FETCHING TARGET ENDPOINT FROM CENTRAL DB...');
+        updateSheetStatus('off', 'FETCHING TARGET ENDPOINTS FROM CENTRAL DB...');
 
         try {
-            const targetEndpoint = await loadLeagueEndpoint(code);
+            const response = await fetch(`${CENTRAL_DB_URL}?action=getConfig&code=${code}`);
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                resolvedListenerUrl = result.webhookUrl;           // Column I: Listener Sheet
+                resolvedMainUrl = result.backendTargetEndpoint;     // Column J: Main Sheet (approved matches)
 
-            if (targetEndpoint) {
-                resolvedListenerUrl = targetEndpoint;
-                
-                localStorage.setItem('league_code', code);
-                localStorage.setItem('resolved_listener_url', resolvedListenerUrl);
+                if (resolvedListenerUrl && resolvedMainUrl) {
+                    localStorage.setItem('league_code', code);
+                    localStorage.setItem('resolved_listener_url', resolvedListenerUrl);
+                    localStorage.setItem('resolved_main_url', resolvedMainUrl);
 
-                updateSheetStatus('success', 'CONNECTED (CODE: ' + code + ')');
-                alert(`Successfully linked! Target endpoint fetched from Central DB for code: ${code}`);
+                    updateSheetStatus('success', 'CONNECTED (CODE: ' + code + ')');
+                    alert(`Successfully linked! Both Listener (Col I) and Main Sheet (Col J) endpoints loaded for code: ${code}`);
+                } else {
+                    updateSheetStatus('error', 'INCOMPLETE ENDPOINTS');
+                    alert('One or both URLs (Column I / Column J) are missing for this league code in Central DB.');
+                }
             } else {
                 updateSheetStatus('error', 'ENDPOINT NOT FOUND');
-                alert('Target endpoint was not found in Column J for this league code.');
+                alert('League code not found in Central DB.');
             }
         } catch (err) {
             updateSheetStatus('error', 'FETCH FAILED');
@@ -332,8 +335,10 @@
 
         localStorage.removeItem('league_code');
         localStorage.removeItem('resolved_listener_url');
+        localStorage.removeItem('resolved_main_url');
         
         resolvedListenerUrl = "";
+        resolvedMainUrl = "";
         document.getElementById('league-code-input').value = '';
         
         updateSheetStatus('off', 'UNCONFIGURED');
@@ -432,60 +437,59 @@
         alert('Match added to queue successfully!');
     }
 
-   async function fetchCurrentWeekMatches() {
-    if (!resolvedListenerUrl) {
-        alert('Please connect to a league first.');
-        switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
-        return;
-    }
+    async function fetchCurrentWeekMatches() {
+        if (!resolvedListenerUrl) {
+            alert('Please connect to a league first.');
+            switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
+            return;
+        }
 
-    try {
-        alert('Fetching current week matches from Google Sheet...');
-        
-        const response = await fetch(resolvedListenerUrl, {
-            method: 'GET',
-            redirect: 'follow'
-        });
-        
-        const data = await response.json();
-
-        if (data.status === 'success' && data.matches && data.matches.length > 0) {
-            const now = new Date();
-            const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-
-            fetchedSheetMatches = data.matches.filter(m => {
-                if (!m.timestamp) return true;
-                const matchDate = new Date(m.timestamp);
-                return matchDate >= oneWeekAgo;
+        try {
+            alert('Fetching current week matches from Listener Sheet (Col I)...');
+            
+            const response = await fetch(resolvedListenerUrl, {
+                method: 'GET',
+                redirect: 'follow'
             });
+            
+            const data = await response.json();
 
-            const dropdown = document.getElementById('sheet-match-dropdown');
-            dropdown.innerHTML = '<option value="">-- Select a match --</option>';
+            if (data.status === 'success' && data.matches && data.matches.length > 0) {
+                const now = new Date();
+                const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
 
-            if (fetchedSheetMatches.length === 0) {
-                fetchedSheetMatches = data.matches; // Fallback to all matches if none are within 7 days
+                fetchedSheetMatches = data.matches.filter(m => {
+                    if (!m.timestamp) return true;
+                    const matchDate = new Date(m.timestamp);
+                    return matchDate >= oneWeekAgo;
+                });
+
+                const dropdown = document.getElementById('sheet-match-dropdown');
+                dropdown.innerHTML = '<option value="">-- Select a match --</option>';
+
+                if (fetchedSheetMatches.length === 0) {
+                    fetchedSheetMatches = data.matches; // Fallback to all matches if none are within 7 days
+                }
+
+                fetchedSheetMatches.forEach((m, index) => {
+                    const opt = document.createElement('option');
+                    opt.value = index;
+                    opt.text = `${m.homeTeam} vs ${m.visitTeam} (${m.timestamp ? new Date(m.timestamp).toLocaleDateString() : 'Recent'})`;
+                    dropdown.appendChild(opt);
+                });
+
+                document.getElementById('match-selector-container').style.display = 'block';
+                alert(`Loaded ${fetchedSheetMatches.length} match(es)! Select one from the dropdown below.`);
+            } else {
+                alert('No matches found in the listener sheet.');
             }
-
-            fetchedSheetMatches.forEach((m, index) => {
-                const opt = document.createElement('option');
-                opt.value = index;
-                opt.text = `${m.homeTeam} vs ${m.visitTeam} (${m.timestamp ? new Date(m.timestamp).toLocaleDateString() : 'Recent'})`;
-                dropdown.appendChild(opt);
-            });
-
-            document.getElementById('match-selector-container').style.display = 'block';
-            alert(`Loaded ${fetchedSheetMatches.length} match(es)! Select one from the dropdown below.`);
-        } else {
-            alert('No matches found in the listener sheet.');
-        }
-    } catch (err) {
-        // Browser security (CORS) blocks background reading from GitHub Pages domains. 
-        // This provides an immediate, frictionless fallback window to grab the payload.
-        if (confirm("Browser security (CORS) prevented direct background reading from GitHub Pages. Click OK to open your listener feed in a new tab where you can view/copy your matches instantly.")) {
-            window.open(resolvedListenerUrl, '_blank');
+        } catch (err) {
+            if (confirm("Browser security (CORS) prevented direct background reading from GitHub Pages. Click OK to open your listener feed in a new tab where you can view/copy your matches instantly.")) {
+                window.open(resolvedListenerUrl, '_blank');
+            }
         }
     }
-}
+
     function loadSelectedSheetMatch() {
         const index = document.getElementById('sheet-match-dropdown').value;
         if (index === "") return;
@@ -596,37 +600,23 @@
         });
     }
 
-    async function processMatchSubmission(leagueCode, matchData) {
-        // Automatically fetches the target endpoint from Column J of the Central DB
-        const targetEndpoint = await loadLeagueEndpoint(leagueCode);
-        
-        // Send your processed data to that endpoint
-        const response = await fetch(targetEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(matchData)
-        });
-        
-        return await response.json();
-    }
-
     async function sendDataToSheet() {
-        if (!resolvedListenerUrl) { alert('Please connect to a league first.'); return; }
+        if (!resolvedMainUrl) { alert('Please connect to a league first to load the Main Sheet target.'); return; }
         if (!finalizedTSV) { alert('No locked TSV batch available to send.'); return; }
 
         document.getElementById('send-sheet-btn').innerText = 'SENDING...';
         try {
-            await fetch(resolvedListenerUrl, {
+            await fetch(resolvedMainUrl, { // Uses Column J (Main Sheet / approved matches)
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: finalizedTSV
             });
-            alert('Batch successfully sent to connected sheet!');
+            alert('Batch successfully sent to Main Sheet (Approved Matches)!');
             document.getElementById('send-sheet-btn').innerText = 'Sent Successfully!';
         } catch (err) {
             alert('Error sending batch to sheet: ' + err.message);
-            document.getElementById('send-sheet-btn').innerText = 'Send Batch to Connected Sheet';
+            document.getElementById('send-sheet-btn').innerText = 'Send Batch to Main Sheet';
         }
     }
 </script>
