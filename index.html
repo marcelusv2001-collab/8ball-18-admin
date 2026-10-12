@@ -5,7 +5,7 @@
      crossorigin="anonymous"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>8-Ball 18 Game - Backend Hub</title>
+    <title>8-Ball Cash League — Backend Hub</title>
     <link rel="icon" type="image/png" href="18_game_admin_favicon.png">
     <style>
         :root {
@@ -184,20 +184,17 @@
 <!-- TAB 2: SHEET CONNECTION & EXPORT -->
 <div id="tab-sheets" class="tab-content">
     <div class="card">
-        <h2>🔗 Central Database & League Code Connection</h2>
+        <h2>🔗 League Code Connection</h2>
         <div class="status-container">
             <div id="sheet-led" class="led-light"></div>
             <span id="sheet-status-text" style="font-size: 0.8rem; font-weight: bold;">CONNECTION: UNCONFIGURED</span>
         </div>
         
-        <label>Central Database Webapp URL</label>
-        <input type="text" id="central-db-url" placeholder="https://script.google.com/macros/s/.../exec">
-        
         <label>6-Digit League Code</label>
         <input type="text" id="league-code-input" maxlength="6" placeholder="123456">
 
         <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <button class="btn" onclick="resolveLeagueEndpoint()">Fetch Link from Central DB</button>
+            <button class="btn" onclick="resolveLeagueEndpoint()">Connect via League Code</button>
             <button class="btn btn-secondary" onclick="clearLeagueConnection()">Switch / Clear League</button>
         </div>
     </div>
@@ -264,6 +261,9 @@
 </div>
 
 <script>
+    // Hardcoded Central Database URL endpoint
+    const CENTRAL_DB_URL = "https://script.google.com/macros/s/AKfycbwvrWSoCLe6e1OfqsPB-dvpVi8eQ70U_eEXQWuSaoimRz1-X3WsH9D9-IL5uyCS1jic/exec";
+
     let stagedMatches = [];
     let finalizedTSV = "";
     let fetchedSheetMatches = [];
@@ -280,11 +280,9 @@
     function closeHelpModal() { document.getElementById('help-modal').style.display = 'none'; }
 
     window.addEventListener('DOMContentLoaded', () => {
-        const savedCentralUrl = localStorage.getItem('central_db_url');
         const savedCode = localStorage.getItem('league_code');
         const savedResolvedUrl = localStorage.getItem('resolved_listener_url');
         
-        if (savedCentralUrl) document.getElementById('central-db-url').value = savedCentralUrl;
         if (savedCode) document.getElementById('league-code-input').value = savedCode;
         if (savedResolvedUrl) {
             resolvedListenerUrl = savedResolvedUrl;
@@ -292,39 +290,43 @@
         }
     });
 
-    async function resolveLeagueEndpoint() {
-    const centralUrl = document.getElementById('central-db-url').value.trim();
-    const code = document.getElementById('league-code-input').value.trim();
-
-    if (!centralUrl) { alert('Please enter the Central Database URL.'); return; }
-    if (code.length !== 6) { alert('League code must be exactly 6 digits.'); return; }
-
-    updateSheetStatus('off', 'FETCHING MAIN SHEET WEBHOOK FROM CENTRAL DB...');
-
-    try {
-        const response = await fetch(`${centralUrl}?action=getLeague&code=${code}`);
-        const data = await response.json();
-
-        if (data.status === 'success' && (data.mainSheetWebhook || data.webhookUrl)) {
-            // Assign the Main Sheet Webhook endpoint
-            resolvedListenerUrl = data.mainSheetWebhook || data.webhookUrl;
-            document.getElementById('resolved-listener-display').value = resolvedListenerUrl;
-            
-            localStorage.setItem('central_db_url', centralUrl);
-            localStorage.setItem('league_code', code);
-            localStorage.setItem('resolved_listener_url', resolvedListenerUrl);
-
-            updateSheetStatus('success', 'CONNECTED (CODE: ' + code + ')');
-            alert(`Successfully linked! Main Sheet Webhook hooked up for: ${data.leagueName || code}`);
-        } else {
-            updateSheetStatus('error', 'CODE NOT FOUND');
-            alert('League code was not found in the central database.');
+    async function loadLeagueEndpoint(leagueCode) {
+        const response = await fetch(`${CENTRAL_DB_URL}?action=getConfig&code=${leagueCode}`);
+        const result = await response.json();
+        if (result.status === 'success') {
+            return result.backendTargetEndpoint; // Grabs the URL from Column J
         }
-    } catch (err) {
-        updateSheetStatus('error', 'FETCH FAILED');
-        alert('Could not reach central database: ' + err.message);
+        throw new Error(result.message || 'League code not found.');
     }
-}
+
+    async function resolveLeagueEndpoint() {
+        const code = document.getElementById('league-code-input').value.trim();
+
+        if (code.length !== 6) { alert('League code must be exactly 6 digits.'); return; }
+
+        updateSheetStatus('off', 'FETCHING TARGET ENDPOINT FROM CENTRAL DB...');
+
+        try {
+            const targetEndpoint = await loadLeagueEndpoint(code);
+
+            if (targetEndpoint) {
+                resolvedListenerUrl = targetEndpoint;
+                
+                localStorage.setItem('league_code', code);
+                localStorage.setItem('resolved_listener_url', resolvedListenerUrl);
+
+                updateSheetStatus('success', 'CONNECTED (CODE: ' + code + ')');
+                alert(`Successfully linked! Target endpoint fetched from Central DB for code: ${code}`);
+            } else {
+                updateSheetStatus('error', 'ENDPOINT NOT FOUND');
+                alert('Target endpoint was not found in Column J for this league code.');
+            }
+        } catch (err) {
+            updateSheetStatus('error', 'FETCH FAILED');
+            alert('Could not reach central database: ' + err.message);
+        }
+    }
+
     function clearLeagueConnection() {
         if (!confirm('Are you sure you want to clear the current league connection and enter a new code?')) return;
 
@@ -432,7 +434,7 @@
 
     async function fetchCurrentWeekMatches() {
         if (!resolvedListenerUrl) {
-            alert('Please enter your Central DB URL and League Code in Tab 2, then click "Fetch Link from Central DB" first.');
+            alert('Please enter your 6-digit League Code in Tab 2 and click "Connect via League Code" first.');
             switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
             return;
         }
@@ -588,28 +590,20 @@
         });
     }
 
-    async function loadLeagueEndpoint(leagueCode) {
-  const response = await fetch(`${CENTRAL_DB_URL}?action=getConfig&code=${leagueCode}`);
-  const result = await response.json();
-  if (result.status === 'success') {
-    return result.backendTargetEndpoint; // Grabs the URL from Column J
-  }
-  throw new Error(result.message);
-}
-
     async function processMatchSubmission(leagueCode, matchData) {
-  // Automatically fetches the target endpoint from Column J of the Central DB
-  const targetEndpoint = await loadLeagueEndpoint(leagueCode);
-  
-  // Send your processed data to that endpoint
-  const response = await fetch(targetEndpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(matchData)
-  });
-  
-  return await response.json();
-}
+        // Automatically fetches the target endpoint from Column J of the Central DB
+        const targetEndpoint = await loadLeagueEndpoint(leagueCode);
+        
+        // Send your processed data to that endpoint
+        const response = await fetch(targetEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(matchData)
+        });
+        
+        return await response.json();
+    }
+
     async function sendDataToSheet() {
         if (!resolvedListenerUrl) { alert('Please connect to a league first.'); return; }
         if (!finalizedTSV) { alert('No locked TSV batch available to send.'); return; }
