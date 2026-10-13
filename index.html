@@ -380,11 +380,12 @@ function parseMatchDetails(payload) {
         else if (headerLinesFound === 0 && homeTeam === "Unknown Home" && !trimmed.includes("vs")) {
             homeTeam = trimmed.replace(/\s*\(\d+\)$/, '').trim();
             headerLinesFound++;
-        } 
+        }       
         else if (headerLinesFound === 1 && visitTeam === "Unknown Visit" && !trimmed.includes("vs")) {
             visitTeam = trimmed.replace(/\s*\(\d+\)$/, '').trim();
             headerLinesFound++;
         }
+    }); // <--- Place the closing brace and parenthesis here, after the visitTeam block!
 
     // 2. Parse Scores
     const hScoreMatch = payload.match(/^\[?HT\b.*?\((\d+)\)/im);
