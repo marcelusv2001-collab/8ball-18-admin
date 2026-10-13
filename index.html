@@ -363,29 +363,20 @@
 
     const lines = payload.split(/\r?\n/);
 
-    // 1. Parse Header Teams ([HT] and [VT])
+    // 1. Parse Header Teams (HT and VT)
     lines.forEach(line => {
         const trimmed = line.trim();
-        // Check for [HT] anywhere in the line or starting with it
-        if (/[HT]/i.test(trimmed)) {
-            const match = trimmed.match(/[HT]\s+(.*?)(?:\s*\((\d+)\))?$/i);
+        if (/^HT\b/i.test(trimmed)) {
+            const match = trimmed.match(/^HT\s+(.*?)(?:\s*\((\d+)\))?$/i);
             if (match && match[1]) homeTeam = match[1].trim();
         } 
-        // Check for [VT] anywhere in the line or starting with it
-        else if (/[VT]/i.test(trimmed)) {
-            const match = trimmed.match(/[VT]\s+(.*?)(?:\s*\((\d+)\))?$/i);
+        else if (/^VT\b/i.test(trimmed)) {
+            const match = trimmed.match(/^VT\s+(.*?)(?:\s*\((\d+)\))?$/i);
             if (match && match[1]) visitTeam = match[1].trim();
         }
     });
 
-    // 2. Parse Scores
-    const hScoreMatch = payload.match(/[HT].*?\((\d+)\)/i);
-    const vScoreMatch = payload.match(/[VT].*?\((\d+)\)/i);
-    if (hScoreMatch && vScoreMatch) {
-        scoreText = `${hScoreMatch[1]} - ${vScoreMatch[1]}`;
-    }    
-
-    // Fallback: If [HT]/[VT] tags are missing, check first few lines for " vs "
+    // Fallback: If HT/VT tags are missing, check first few lines for " vs "
     if (homeTeam === "Unknown Home" || visitTeam === "Unknown Visit") {
         for (let i = 0; i < Math.min(lines.length, 3); i++) {
             if (lines[i].includes("vs") && !lines[i].toLowerCase().startsWith("gm")) {
@@ -399,8 +390,8 @@
     }
 
     // 2. Parse Scores
-    const hScoreMatch = payload.match(/[HT].*?\((\d+)\)/i);
-    const vScoreMatch = payload.match(/[VT].*?\((\d+)\)/i);
+    const hScoreMatch = payload.match(/^HT\b.*?\((\d+)\)/im);
+    const vScoreMatch = payload.match(/^VT\b.*?\((\d+)\)/im);
     if (hScoreMatch && vScoreMatch) {
         scoreText = `${hScoreMatch[1]} - ${vScoreMatch[1]}`;
     }
@@ -408,8 +399,7 @@
     // 3. Parse Game Rows
     lines.forEach(line => {
         const trimmed = line.trim();
-        // Skip header lines
-        if (/^[HT]/i.test(trimmed) || /^[VT]/i.test(trimmed)) return;
+        if (/^HT\b/i.test(trimmed) || /^VT\b/i.test(trimmed)) return;
 
         const gameRowRegex = /^(?:(Gm\d+)\s*[:-]?\s*)?(.*?)\s+vs\s+(.*)$/i;
         const matchResult = trimmed.match(gameRowRegex);
@@ -426,7 +416,7 @@
             const homeNP = /\(NP\)/i.test(homeRaw);
             
             // Clean player name using proper regex pipe (|)
-            const homePlayer = homeRaw.replace(/\((W\vert{}TR\vert{}8BB\vert{}NP)\)/gi, '').trim();
+           const homePlayer = homeRaw.replace(/\((W|TR|8BB|NP)\)/gi, '').trim();
 
             const visitWin = /\(W\)/i.test(visitRaw);
             const visitTR = /\(TR\)/i.test(visitRaw);
@@ -434,7 +424,7 @@
             const visitNP = /\(NP\)/i.test(visitRaw);
             
             // Clean player name using proper regex pipe (|)
-            const visitPlayer = visitRaw.replace(/\((W\vert{}TR\vert{}8BB\vert{}NP)\)/gi, '').trim();
+            const visitPlayer = visitRaw.replace(/\((W|TR|8BB|NP)\)/gi, '').trim();
 
             individualGames.push({
                 gameNum, homePlayer, homeNP, homeWin, homeTR, home8BB,
@@ -453,7 +443,6 @@
 
     return { homeTeam, visitTeam, scoreText, individualGames };
 }
-
     
     function stageMatch() {
         const payload = document.getElementById('input-payload').value.trim();
