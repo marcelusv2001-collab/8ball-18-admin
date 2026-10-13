@@ -493,7 +493,7 @@ function parseMatchDetails(payload) {
 }
     
 
-    Vasync function fetchCurrentWeekMatches() {
+    async function fetchCurrentWeekMatches() {
     if (!resolvedListenerUrl) {
         alert('Please connect to a league first.');
         switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
@@ -582,25 +582,6 @@ function parseMatchDetails(payload) {
     // 4. Inject into the DOM to execute the request
     document.body.appendChild(script);
 }
-}
-    function loadSelectedSheetMatch() {
-        const index = document.getElementById('sheet-match-dropdown').value;
-        if (index === "") return;
-
-        const selected = fetchedSheetMatches[index];
-        if (selected) {
-            document.getElementById('input-payload').value = selected.payload;
-            document.getElementById('input-home-sig').value = selected.homeSig || '';
-            document.getElementById('input-visit-sig').value = selected.visitSig || '';
-
-            // Forcefully map the known team names from the listener object if parsed names fail
-            if (selected.homeTeam) {
-                window._forcedHomeTeam = selected.homeTeam;
-                window._forcedVisitTeam = selected.visitTeam;
-            }
-        }
-    }
-
     function renderStagedQueue() {
         const tbody = document.getElementById('staged-matches-body');
         if (stagedMatches.length === 0) {
