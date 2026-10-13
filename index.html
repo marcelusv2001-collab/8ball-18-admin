@@ -494,80 +494,79 @@ function parseMatchDetails(payload) {
     
 
     async function fetchCurrentWeekMatches() {
-        if (!resolvedListenerUrl) {
-            alert('Please connect to a league first.');
-            switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
-            return;
-        }
+    if (!resolvedListenerUrl) {
+        alert('Please connect to a league first.');
+        switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
+        return;
+    }
 
-        try {
-            alert('Fetching current week matches from Listener Sheet (Col I)...');
-            
-            const response = await fetch(resolvedListenerUrl, {
-                method: 'GET',
-                redirect: 'follow'
+    try {
+        // Use a reliable CORS proxy wrapper for the GET request
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(resolvedListenerUrl)}`;
+        
+        const response = await fetch(proxyUrl);
+        const textData = await response.text();
+        const data = JSON.parse(textData);
+
+        if (data.status === 'success' && data.matches && data.matches.length > 0) {
+            const now = new Date();
+            const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+            // Map and pre-parse matches to ensure individual games & markers carry over
+            const mappedMatches = data.matches.map(m => {
+                const parsed = parseMatchDetails(m.payload || "");
+                return {
+                    timestamp: m.timestamp,
+                    leagueName: m.leagueName,
+                    homeTeam: m.homeTeam || parsed.homeTeam,
+                    visitTeam: m.visitTeam || parsed.visitTeam,
+                    scoreText: m.scoreText || parsed.scoreText,
+                    individualGames: m.individualGames && m.individualGames.length > 0 ? m.individualGames : parsed.individualGames,
+                    payload: m.payload,
+                    homeSig: m.homeSig,
+                    visitSig: m.visitSig
+                };
             });
-            
-            const data = await response.json();
 
-            if (data.status === 'success' && data.matches && data.matches.length > 0) {
-                const now = new Date();
-                const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+            fetchedSheetMatches = mappedMatches.filter(m => {
+                if (!m.timestamp) return true;
+                const matchDate = new Date(m.timestamp);
+                return matchDate >= oneWeekAgo;
+            });
 
-                // Map and pre-parse matches to ensure individual games & markers carry over
-                const mappedMatches = data.matches.map(m => {
-                    const parsed = parseMatchDetails(m.payload || "");
-                    return {
-                        timestamp: m.timestamp,
-                        leagueName: m.leagueName,
-                        homeTeam: m.homeTeam || parsed.homeTeam,
-                        visitTeam: m.visitTeam || parsed.visitTeam,
-                        scoreText: m.scoreText || parsed.scoreText,
-                        individualGames: m.individualGames && m.individualGames.length > 0 ? m.individualGames : parsed.individualGames,
-                        payload: m.payload,
-                        homeSig: m.homeSig,
-                        visitSig: m.visitSig
-                    };
-                });
+            const dropdown = document.getElementById('sheet-match-dropdown');
+            dropdown.innerHTML = '<option value="">-- Select a match --</option>';
 
-                fetchedSheetMatches = mappedMatches.filter(m => {
-                    if (!m.timestamp) return true;
-                    const matchDate = new Date(m.timestamp);
-                    return matchDate >= oneWeekAgo;
-                });
+            if (fetchedSheetMatches.length === 0) {
+                fetchedSheetMatches = mappedMatches; // Fallback to all matches if none are within 7 days
+            }
 
-                const dropdown = document.getElementById('sheet-match-dropdown');
-                dropdown.innerHTML = '<option value="">-- Select a match --</option>';
-
-                if (fetchedSheetMatches.length === 0) {
-                    fetchedSheetMatches = mappedMatches; // Fallback to all matches if none are within 7 days
-                }
-
-                fetchedSheetMatches.forEach((m, index) => {
-                    const opt = document.createElement('option');
-                    opt.value = index;
-                    let dateStr = 'Recent';
-                    if (m.timestamp) {
-                        const d = new Date(m.timestamp);
-                        if (!isNaN(d.getTime())) {
-                            dateStr = d.toLocaleDateString();
-                        }
+            fetchedSheetMatches.forEach((m, index) => {
+                const opt = document.createElement('option');
+                opt.value = index;
+                let dateStr = 'Recent';
+                if (m.timestamp) {
+                    const d = new Date(m.timestamp);
+                    if (!isNaN(d.getTime())) {
+                        dateStr = d.toLocaleDateString();
                     }
-                    opt.text = `${m.homeTeam} vs ${m.visitTeam} — (${dateStr})`;
-                    dropdown.appendChild(opt);
-                });
+                }
+                opt.text = `${m.homeTeam} vs ${m.visitTeam} — (${dateStr})`;
+                dropdown.appendChild(opt);
+            });
 
-                document.getElementById('match-selector-container').style.display = 'block';
-                alert(`Loaded ${fetchedSheetMatches.length} match(es)! Select one from the dropdown below.`);
-            } else {
-                alert('No matches found in the listener sheet.');
-            }
-        } catch (err) {
-            if (confirm("Browser security (CORS) prevented direct background reading from GitHub Pages. Click OK to open your listener feed in a new tab where you can view/copy your matches instantly.")) {
-                window.open(resolvedListenerUrl, '_blank');
-            }
+            document.getElementById('match-selector-container').style.display = 'block';
+            alert(`Loaded ${fetchedSheetMatches.length} match(es)! Select one from the dropdown below.`);
+        } else {
+            alert('No matches found in the listener sheet.');
+        }
+    } catch (err) {
+        // Fallback if proxy fails
+        if (confirm("CORS proxy error. Click OK to open your listener feed directly in a new tab.")) {
+            window.open(resolvedListenerUrl, '_blank');
         }
     }
+}
     function loadSelectedSheetMatch() {
         const index = document.getElementById('sheet-match-dropdown').value;
         if (index === "") return;
