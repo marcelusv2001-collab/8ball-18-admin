@@ -528,11 +528,18 @@ function parseMatchDetails(payload) {
                 }
 
                 fetchedSheetMatches.forEach((m, index) => {
-                    const opt = document.createElement('option');
-                    opt.value = index;
-                    opt.text = `${m.homeTeam} vs ${m.visitTeam} (${m.timestamp ? new Date(m.timestamp).toLocaleDateString() : 'Recent'})`;
-                    dropdown.appendChild(opt);
-                });
+    const opt = document.createElement('option');
+    opt.value = index;
+    let dateStr = 'Recent';
+    if (m.timestamp) {
+        const d = new Date(m.timestamp);
+        if (!isNaN(d.getTime())) {
+            dateStr = d.toLocaleDateString();
+        }
+    }
+    opt.text = `${m.homeTeam} vs ${m.visitTeam} — (${dateStr})`;
+    dropdown.appendChild(opt);
+});
 
                 document.getElementById('match-selector-container').style.display = 'block';
                 alert(`Loaded ${fetchedSheetMatches.length} match(es)! Select one from the dropdown below.`);
