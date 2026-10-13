@@ -366,12 +366,12 @@
         // 1. Parse Header Teams (Supports [HT] / HT and [VT] / VT with optional score brackets)
         lines.forEach(line => {
             const trimmed = line.trim();
-            if (/^[?HT]?\b/i.test(trimmed)) {
+            if (/^\[?HT\]?\b/i.test(trimmed)) {
                 const match = trimmed.match(/^\[?HT\]?\s+(.*?)(?:\s*\((\d+)\))?$/i);
                 if (match && match[1]) homeTeam = match[1].trim();
             } 
             else if (/^\[?VT\]?\b/i.test(trimmed)) {
-                const match = trimmed.match(/^[?VT]?\s+(.*?)(?:\s*\((\d+)\))?$/i);
+                const match = trimmed.match(/^\[?VT\]?\s+(.*?)(?:\s*\((\d+)\))?$/i);
                 if (match && match[1]) visitTeam = match[1].trim();
             }
         });
