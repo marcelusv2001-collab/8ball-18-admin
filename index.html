@@ -366,14 +366,24 @@
     // 1. Parse Header Teams ([HT] and [VT])
     lines.forEach(line => {
         const trimmed = line.trim();
-        if (/^[HT]/i.test(trimmed)) {
-            const match = trimmed.match(/^[HT]\s+(.*?)(?:\s*\((\d+)\))?$/i);
+        // Check for [HT] anywhere in the line or starting with it
+        if (/[HT]/i.test(trimmed)) {
+            const match = trimmed.match(/[HT]\s+(.*?)(?:\s*\((\d+)\))?$/i);
             if (match && match[1]) homeTeam = match[1].trim();
-        } else if (/^[VT]/i.test(trimmed)) {
-            const match = trimmed.match(/^[VT]\s+(.*?)(?:\s*\((\d+)\))?$/i);
+        } 
+        // Check for [VT] anywhere in the line or starting with it
+        else if (/[VT]/i.test(trimmed)) {
+            const match = trimmed.match(/[VT]\s+(.*?)(?:\s*\((\d+)\))?$/i);
             if (match && match[1]) visitTeam = match[1].trim();
         }
     });
+
+    // 2. Parse Scores
+    const hScoreMatch = payload.match(/[HT].*?\((\d+)\)/i);
+    const vScoreMatch = payload.match(/[VT].*?\((\d+)\)/i);
+    if (hScoreMatch && vScoreMatch) {
+        scoreText = `${hScoreMatch[1]} - ${vScoreMatch[1]}`;
+    }    
 
     // Fallback: If [HT]/[VT] tags are missing, check first few lines for " vs "
     if (homeTeam === "Unknown Home" || visitTeam === "Unknown Visit") {
