@@ -363,7 +363,7 @@ function parseMatchDetails(payload) {
 
     const lines = payload.split(/\r?\n/);
 
-    // 1. Parse Header Teams
+    // 1. Parse Header Teams (Fixed bracket escaping)
     let headerLinesFound = 0;
     lines.forEach(line => {
         const trimmed = line.trim();
@@ -387,19 +387,6 @@ function parseMatchDetails(payload) {
         }
     });
 
-    // Fallback: Check for "vs" in top lines if tags are missing
-    if (homeTeam === "Unknown Home" || visitTeam === "Unknown Visit") {
-        for (let i = 0; i < Math.min(lines.length, 3); i++) {
-            if (lines[i].includes("vs") && !lines[i].toLowerCase().startsWith("gm")) {
-                const parts = lines[i].split("vs");
-                if (parts.length >= 2) {
-                    if (homeTeam === "Unknown Home") homeTeam = parts[0].replace(/\[.*?\]/g, '').trim();
-                    if (visitTeam === "Unknown Visit") visitTeam = parts[1].replace(/\[.*?\]/g, '').trim();
-                }
-            }
-        }
-    }
-
     // 2. Parse Scores
     const hScoreMatch = payload.match(/^\[?HT\b.*?\((\d+)\)/im);
     const vScoreMatch = payload.match(/^\[?VT\b.*?\((\d+)\)/im);
@@ -410,10 +397,9 @@ function parseMatchDetails(payload) {
     // 3. Parse Game Rows
     lines.forEach(line => {
         const trimmed = line.trim();
-        // Skip empty lines, tag lines, league headers, and overall summary line
         if (!trimmed || /^[?HT]?\b/i.test(trimmed) || /^[?VT]?\b/i.test(trimmed) || trimmed.toLowerCase().includes("league") || trimmed.toLowerCase().includes("overall")) return;
         
-        // Robust regex supporting "vs", "-", or "against" with optional game numbers
+        // Flexible regex for player vs player lines
         const gameRowRegex = /^(?:(Gm\d+|Game\s*\d+)\s*[:-]?\s*)?(.*?)\s+(?:vs\.?|-|against)\s+(.*)$/i;
         const matchResult = trimmed.match(gameRowRegex);
 
@@ -422,7 +408,6 @@ function parseMatchDetails(payload) {
             const homeRaw = matchResult[2].trim();
             const visitRaw = matchResult[3].trim();
 
-            // Check markers case-insensitively
             const homeWin = /\(W\)|[W]|\bWin\b/i.test(homeRaw);
             const homeTR = /\(TR\)|[TR]|\bTR\b|\bRun\b/i.test(homeRaw);
             const home8BB = /\(8BB\)|[8BB]|\b8BB\b|\b8-Ball Break\b/i.test(homeRaw);
@@ -441,8 +426,22 @@ function parseMatchDetails(payload) {
                 gameNum, homePlayer, homeNP, homeWin, homeTR, home8BB,
                 visitPlayer, visitNP, visitWin, visitTR, visit8BB
             });
+        } else {
+            // Debug log to see what line failed to match
+            console.log("Unmatched line skipped or failing regex:", trimmed);
         }
     });
+
+    if (individualGames.length === 0) {
+        individualGames.push({
+            gameNum: "Gm1", homePlayer: "Check Payload Format", visitPlayer: "Check Payload Format",
+            homeNP: false, homeWin: false, homeTR: false, home8BB: false,
+            visitNP: false, visitWin: false, visitTR: false, visit8BB: false
+        });
+    }
+
+    return { homeTeam, visitTeam, scoreText, individualGames };
+}
 
     // Only fallback if absolutely zero lines parsed, and output clean blank players instead of team names
     if (individualGames.length === 0) {
