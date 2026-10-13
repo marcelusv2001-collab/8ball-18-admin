@@ -395,8 +395,8 @@
 
             if (matchResult) {
                 const gameNum = matchResult[1] || "Gm";
-                const homeRaw = matchResult[2].trim();
-                const visitRaw = matchResult[3].trim();
+                const homeRaw = keywordClean(matchResult[2].trim());
+                const visitRaw = keywordClean(matchResult[3].trim());
 
                 const homeWin = /\(W\)|[W]|\bWin\b/i.test(homeRaw);
                 const homeTR = /\(TR\)|[TR]|\bTR\b|\bRun\b/i.test(homeRaw);
@@ -429,6 +429,8 @@
 
         return { homeTeam, visitTeam, scoreText, individualGames };
     }
+
+    function keywordClean(str) { return str; }
 
     function stageMatch() {
         const payload = document.getElementById('input-payload').value.trim();
