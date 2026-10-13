@@ -410,7 +410,7 @@ function parseMatchDetails(payload) {
     // 3. Parse Game Rows
     lines.forEach(line => {
         const trimmed = line.trim();
-        if (!trimmed || /^[?HT]?\b/i.test(trimmed) || /^[?VT]?\b/i.test(trimmed)) return;
+        if (!trimmed || /^[?HT]?\b/i.test(trimmed) || /^[?VT]?\b/i.test(trimmed) || trimmed.toLowerCase().includes("overall") || trimmed.toLowerCase().includes("league")) return;
         
         const gameRowRegex = /^(?:(Gm\d+|Game\s*\d+)\s*[:-]?\s*)?(.*?)\s+vs\s+(.*)$/i;
         const matchResult = trimmed.match(gameRowRegex);
