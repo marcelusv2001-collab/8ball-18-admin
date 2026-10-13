@@ -410,8 +410,8 @@ function parseMatchDetails(payload) {
     // 3. Parse Game Rows
     lines.forEach(line => {
         const trimmed = line.trim();
-        // Keep "league" filtered out, but let's allow lines that have "vs" even if they don't have "Gm"
-        if (!trimmed || /^[?HT]?\b/i.test(trimmed) || /^[?VT]?\b/i.test(trimmed) || trimmed.toLowerCase().includes("league")) return;
+        // Filter out empty lines, tags, league headers, and the overall summary line
+        if (!trimmed || /^[?HT]?\b/i.test(trimmed) || /^[?VT]?\b/i.test(trimmed) || trimmed.toLowerCase().includes("league") || trimmed.toLowerCase().includes("overall")) return;
         
         // Flexible regex: matches optional "Gm1", catches anything before "vs" as Home Player, anything after as Visiting Player
         const gameRowRegex = /^(?:(Gm\d+|Game\s*\d+)\s*[:-]?\s*)?(.*?)\s+vs\s+(.*)$/i;
@@ -428,14 +428,14 @@ function parseMatchDetails(payload) {
             const home8BB = /\(8BB\)|[8BB]|\b8BB\b|\b8-Ball Break\b/i.test(homeRaw);
             const homeNP = /\(NP\)|[NP]|\bNew\b/i.test(homeNP);
             
-            const homePlayer = homeRaw.replace(/\((W\vert{}TR\vert{}8BB\vert{}NP)\)|\[(W\vert{}TR\vert{}8BB\vert{}NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
+            const homePlayer = homeRaw.replace(/\((W|TR|8BB|NP)\)|\[(W|TR|8BB|NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
 
             const visitWin = /\(W\)|[W]|\bWin\b/i.test(visitRaw);
-            const visitTR = /\(TR\)|[TR]|\bTR\b|\bTR\b|\bRun\b/i.test(visitRaw);
+            const visitTR = /\(TR\)|[TR]|\bTR\b|\bRun\b/i.test(visitRaw);
             const visit8BB = /\(8BB\)|[8BB]|\b8BB\b|\b8-Ball Break\b/i.test(visitRaw);
-            const visitNP = /\(NP\)|[NP]|\bNew\b/i.test(visitNP);
+            const visitNP = /\(NP\)|[NP]|\bNew\b/i.test(visitRaw);
             
-            const visitPlayer = visitRaw.replace(/\((W\vert{}TR\vert{}8BB\vert{}NP)\)|\[(W\vert{}TR\vert{}8BB\vert{}NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
+            const visitPlayer = visitRaw.replace(/\((W|TR|8BB|NP)\)|\[(W|TR|8BB|NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
 
             individualGames.push({
                 gameNum, homePlayer, homeNP, homeWin, homeTR, home8BB,
@@ -443,7 +443,6 @@ function parseMatchDetails(payload) {
             });
         }
     });
-
     if (individualGames.length === 0) {
         individualGames.push({
             gameNum: "Overall", homePlayer: homeTeam, visitPlayer: visitTeam,
