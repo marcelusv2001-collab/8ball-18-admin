@@ -551,6 +551,12 @@ function parseMatchDetails(payload) {
             document.getElementById('input-payload').value = selected.payload;
             document.getElementById('input-home-sig').value = selected.homeSig || '';
             document.getElementById('input-visit-sig').value = selected.visitSig || '';
+
+            // Forcefully map the known team names from the listener object if parsed names fail
+            if (selected.homeTeam) {
+                window._forcedHomeTeam = selected.homeTeam;
+                window._forcedVisitTeam = selected.visitTeam;
+            }
         }
     }
 
