@@ -601,7 +601,7 @@
         
         stagedMatches.forEach(m => {
             const timestamp = new Date().toISOString();
-            const headerTitle = "8-BALL CASH LEAGUE";
+            const headerTitle = m.leagueName || (fetchedSheetMatches[0] && fetchedSheetMatches[0].leagueName) || "8-BALL CASH LEAGUE";
             const [hScore, vScore] = m.scoreText.includes('-') ? m.scoreText.split('-').map(s => s.trim()) : ["0", "0"];
 
             m.individualGames.forEach(game => {
