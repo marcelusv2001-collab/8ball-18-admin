@@ -590,7 +590,7 @@
         renderStagedQueue();
     }
 
- function lockAndGenerateBatch() {
+function lockAndGenerateBatch() {
         try {
             const unapproved = stagedMatches.filter(m => !m.approved);
             if (unapproved.length > 0) {
@@ -603,6 +603,10 @@
                 const timestamp = new Date().toISOString();
                 const headerTitle = m.leagueName || (fetchedSheetMatches.length > 0 && fetchedSheetMatches[0] && fetchedSheetMatches[0].leagueName) || "8-BALL CASH LEAGUE";
                 
+                // Ensure we reliably capture team names from any property variation
+                const homeName = m.homeTeam || m.home || "Unknown Home";
+                const visitName = m.visitTeam || m.visit || m.visitorTeam || "Unknown Visit";
+
                 // Safe score splitting fallback
                 let hScore = "0", vScore = "0";
                 if (m.scoreText && typeof m.scoreText === 'string' && m.scoreText.includes('-')) {
@@ -613,7 +617,7 @@
 
                 // Ensure individualGames exists and is an array
                 const games = Array.isArray(m.individualGames) && m.individualGames.length > 0 ? m.individualGames : [{
-                    gameNum: "Overall", homePlayer: m.homeTeam || "Unknown Home", visitPlayer: m.visitTeam || "Unknown Visit",
+                    gameNum: "Overall", homePlayer: homeName, visitPlayer: visitName,
                     homeNP: false, homeWin: false, homeTR: false, home8BB: false,
                     visitNP: false, visitWin: false, visitTR: false, visit8BB: false
                 }];
@@ -622,9 +626,9 @@
                     tsvRows.push([
                         timestamp, 
                         headerTitle, 
-                        m.homeTeam || "Unknown Home", 
+                        homeName, 
                         hScore, 
-                        m.visitTeam || "Unknown Visit", 
+                        visitName, 
                         vScore,
                         game.gameNum || "Gm", 
                         game.homePlayer || "", 
@@ -660,7 +664,6 @@
             console.error("Lock batch error details:", err);
         }
     }
-
     function copyTSVToClipboard() {
         if (!finalizedTSV) { alert('No TSV payload available yet.'); return; }
         navigator.clipboard.writeText(finalizedTSV).then(() => {
