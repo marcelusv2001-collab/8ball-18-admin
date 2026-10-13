@@ -470,28 +470,6 @@ function parseMatchDetails(payload) {
         alert('Match added to queue successfully!');
     }
     
-    function stageMatch() {
-        const payload = document.getElementById('input-payload').value.trim();
-        const homeSig = document.getElementById('input-home-sig').value.trim();
-        const visitSig = document.getElementById('input-visit-sig').value.trim();
-
-        if (!payload) { alert('Please provide a raw text match payload.'); return; }
-
-        const parsed = parseMatchDetails(payload);
-
-        stagedMatches.push({
-            id: Date.now(), payload, homeTeam: parsed.homeTeam, visitTeam: parsed.visitTeam,
-            scoreText: parsed.scoreText, individualGames: parsed.individualGames,
-            homeSig, visitSig, approved: false
-        });
-
-        document.getElementById('input-payload').value = '';
-        document.getElementById('input-home-sig').value = '';
-        document.getElementById('input-visit-sig').value = '';
-
-        renderStagedQueue();
-        alert('Match added to queue successfully!');
-    }
 
     async function fetchCurrentWeekMatches() {
         if (!resolvedListenerUrl) {
