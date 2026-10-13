@@ -453,33 +453,53 @@ function parseMatchDetails(payload) {
     return { homeTeam, visitTeam, scoreText, individualGames };
 }
     function stageMatch() {
-        const payload = document.getElementById('input-payload').value.trim();
-        const homeSig = document.getElementById('input-home-sig').value.trim();
-        const visitSig = document.getElementById('input-visit-sig').value.trim();
+    const payload = document.getElementById('input-payload').value.trim();
+    const homeSig = document.getElementById('input-home-sig').value.trim();
+    const visitSig = document.getElementById('input-visit-sig').value.trim();
 
-        if (!payload) { alert('Please provide a raw text match payload.'); return; }
+    if (!payload) { alert('Please provide a raw text match payload.'); return; }
 
-        const parsed = parseMatchDetails(payload);
-
-        stagedMatches.push({
-            id: Date.now(), 
-            payload, 
-            homeTeam: parsed.homeTeam, 
-            visitTeam: parsed.visitTeam,
-            scoreText: parsed.scoreText, 
-            individualGames: parsed.individualGames,
-            homeSig, 
-            visitSig, 
-            approved: false
-        });
-
-        document.getElementById('input-payload').value = '';
-        document.getElementById('input-home-sig').value = '';
-        document.getElementById('input-visit-sig').value = '';
-
-        renderStagedQueue();
-        alert('Match added to queue successfully!');
+    // Check if we loaded a selected sheet match with pre-parsed games
+    let parsed;
+    const selectedDropdownIndex = document.getElementById('sheet-match-dropdown').value;
+    if (selectedDropdownIndex !== "" && fetchedSheetMatches[selectedDropdownIndex]) {
+        const selectedMatch = fetchedSheetMatches[selectedDropdownIndex];
+        // If payload hasn't been edited, use the pre-parsed games directly!
+        if (selectedMatch.payload === payload) {
+            parsed = {
+                homeTeam: selectedMatch.homeTeam,
+                visitTeam: selectedMatch.visitTeam,
+                scoreText: selectedMatch.scoreText,
+                individualGames: selectedMatch.individualGames
+            };
+        } else {
+            parsed = parseMatchDetails(payload);
+        }
+    } else {
+        parsed = parseMatchDetails(payload);
     }
+
+    stagedMatches.push({
+        id: Date.now(), 
+        payload, 
+        homeTeam: parsed.homeTeam, 
+        visitTeam: parsed.visitTeam,
+        scoreText: parsed.scoreText, 
+        individualGames: parsed.individualGames,
+        homeSig, 
+        visitSig, 
+        approved: false
+    });
+
+    document.getElementById('input-payload').value = '';
+    document.getElementById('input-home-sig').value = '';
+    document.getElementById('input-visit-sig').value = '';
+    document.getElementById('sheet-match-dropdown').value = '';
+    document.getElementById('match-selector-container').style.display = 'none';
+
+    renderStagedQueue();
+    alert('Match added to queue successfully with all player frames and markers!');
+}
     
 
     async function fetchCurrentWeekMatches() {
