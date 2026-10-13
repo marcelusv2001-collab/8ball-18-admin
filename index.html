@@ -501,9 +501,12 @@ function parseMatchDetails(payload) {
     }
 
     try {
-        // Use a reliable CORS proxy wrapper for the GET request
+        alert('Fetching current week matches via CORS proxy...');
+        
+        // 1. Wrap your listener URL with the AllOrigins proxy
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(resolvedListenerUrl)}`;
         
+        // 2. Fetch from the proxy instead of directly hitting Google Apps Script
         const response = await fetch(proxyUrl);
         const textData = await response.text();
         const data = JSON.parse(textData);
@@ -561,8 +564,8 @@ function parseMatchDetails(payload) {
             alert('No matches found in the listener sheet.');
         }
     } catch (err) {
-        // Fallback if proxy fails
-        if (confirm("CORS proxy error. Click OK to open your listener feed directly in a new tab.")) {
+        // Fallback safety net if the proxy ever hiccups
+        if (confirm("Proxy connection error. Click OK to open your listener feed directly in a new tab.")) {
             window.open(resolvedListenerUrl, '_blank');
         }
     }
