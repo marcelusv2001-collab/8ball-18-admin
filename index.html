@@ -363,29 +363,29 @@ function parseMatchDetails(payload) {
 
     const lines = payload.split(/\r?\n/);
 
-    // 1. Parse Header Teams (Supports tagged [HT]/[VT] or clean team name lines)
-        let headerLinesFound = 0;
-        lines.forEach(line => {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.toLowerCase().includes("league") || trimmed.toLowerCase().startsWith("gm")) return;
+    // 1. Parse Header Teams
+    let headerLinesFound = 0;
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.toLowerCase().includes("league") || trimmed.toLowerCase().startsWith("gm")) return;
 
-            if (/^\[?HT\]?\b/i.test(trimmed)) {
-                const match = trimmed.match(/^\[?HT\]?\s+(.*?)(?:\s*\((\d+)\))?$/i);
-                if (match && match[1]) homeTeam = match[1].trim();
-            } 
-            else if (/^\[?VT\]?\b/i.test(trimmed)) {
-                const match = trimmed.match(/^\[?VT\]?\s+(.*?)(?:\s*\((\d+)\))?$/i);
-                if (match && match[1]) visitTeam = match[1].trim();
-            } 
-            else if (headerLinesFound === 0 && homeTeam === "Unknown Home" && !trimmed.includes("vs")) {
-                homeTeam = trimmed.replace(/\s*\(\d+\)$/, '').trim();
-                headerLinesFound++;
-            } 
-            else if (headerLinesFound === 1 && visitTeam === "Unknown Visit" && !trimmed.includes("vs")) {
-                visitTeam = trimmed.replace(/\s*\(\d+\)$/, '').trim();
-                headerLinesFound++;
-            }
-        });
+        if (/^[?HT]?\b/i.test(trimmed)) {
+            const match = trimmed.match(/^[?HT]?\s+(.*?)(?:\s*\((\d+)\))?$/i);
+            if (match && match[1]) homeTeam = match[1].trim();
+        } 
+        else if (/^[?VT]?\b/i.test(trimmed)) {
+            const match = trimmed.match(/^[?VT]?\s+(.*?)(?:\s*\((\d+)\))?$/i);
+            if (match && match[1]) visitTeam = match[1].trim();
+        } 
+        else if (headerLinesFound === 0 && homeTeam === "Unknown Home" && !trimmed.includes("vs")) {
+            homeTeam = trimmed.replace(/\s*\(\d+\)$/, '').trim();
+            headerLinesFound++;
+        } 
+        else if (headerLinesFound === 1 && visitTeam === "Unknown Visit" && !trimmed.includes("vs")) {
+            visitTeam = trimmed.replace(/\s*\(\d+\)$/, '').trim();
+            headerLinesFound++;
+        }
+    });
 
     // Fallback: Check for "vs" in top lines if tags are missing
     if (homeTeam === "Unknown Home" || visitTeam === "Unknown Visit") {
@@ -410,11 +410,11 @@ function parseMatchDetails(payload) {
     // 3. Parse Game Rows
     lines.forEach(line => {
         const trimmed = line.trim();
-        // Filter out empty lines, tags, league headers, and the overall summary line
+        // Skip empty lines, tag lines, league headers, and overall summary line
         if (!trimmed || /^[?HT]?\b/i.test(trimmed) || /^[?VT]?\b/i.test(trimmed) || trimmed.toLowerCase().includes("league") || trimmed.toLowerCase().includes("overall")) return;
         
-        // Flexible regex: matches optional "Gm1", catches anything before "vs" as Home Player, anything after as Visiting Player
-        const gameRowRegex = /^(?:(Gm\d+|Game\s*\d+)\s*[:-]?\s*)?(.*?)\s+vs\s+(.*)$/i;
+        // Robust regex supporting "vs", "-", or "against" with optional game numbers
+        const gameRowRegex = /^(?:(Gm\d+|Game\s*\d+)\s*[:-]?\s*)?(.*?)\s+(?:vs\.?|-|against)\s+(.*)$/i;
         const matchResult = trimmed.match(gameRowRegex);
 
         if (matchResult) {
@@ -422,20 +422,20 @@ function parseMatchDetails(payload) {
             const homeRaw = matchResult[2].trim();
             const visitRaw = matchResult[3].trim();
 
-            // Check markers (W, TR, 8BB, NP) case-insensitively
+            // Check markers case-insensitively
             const homeWin = /\(W\)|[W]|\bWin\b/i.test(homeRaw);
             const homeTR = /\(TR\)|[TR]|\bTR\b|\bRun\b/i.test(homeRaw);
             const home8BB = /\(8BB\)|[8BB]|\b8BB\b|\b8-Ball Break\b/i.test(homeRaw);
             const homeNP = /\(NP\)|[NP]|\bNew\b/i.test(homeNP);
             
-            const homePlayer = homeRaw.replace(/\((W|TR|8BB|NP)\)|\[(W|TR|8BB|NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
+            const homePlayer = homeRaw.replace(/\((W\vert{}TR\vert{}8BB\vert{}NP)\)|\[(W\vert{}TR\vert{}8BB\vert{}NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
 
             const visitWin = /\(W\)|[W]|\bWin\b/i.test(visitRaw);
             const visitTR = /\(TR\)|[TR]|\bTR\b|\bRun\b/i.test(visitRaw);
             const visit8BB = /\(8BB\)|[8BB]|\b8BB\b|\b8-Ball Break\b/i.test(visitRaw);
-            const visitNP = /\(NP\)|[NP]|\bNew\b/i.test(visitRaw);
+            const visitNP = /\(NP\)|[NP]|\bNew\b/i.test(visitNP);
             
-            const visitPlayer = visitRaw.replace(/\((W|TR|8BB|NP)\)|\[(W|TR|8BB|NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
+            const visitPlayer = visitRaw.replace(/\((W\vert{}TR\vert{}8BB\vert{}NP)\)|\[(W\vert{}TR\vert{}8BB\vert{}NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
 
             individualGames.push({
                 gameNum, homePlayer, homeNP, homeWin, homeTR, home8BB,
@@ -443,9 +443,11 @@ function parseMatchDetails(payload) {
             });
         }
     });
+
+    // Only fallback if absolutely zero lines parsed, and output clean blank players instead of team names
     if (individualGames.length === 0) {
         individualGames.push({
-            gameNum: "Overall", homePlayer: homeTeam, visitPlayer: visitTeam,
+            gameNum: "Gm1", homePlayer: "", visitPlayer: "",
             homeNP: false, homeWin: false, homeTR: false, home8BB: false,
             visitNP: false, visitWin: false, visitTR: false, visit8BB: false
         });
