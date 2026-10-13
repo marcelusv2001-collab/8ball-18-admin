@@ -493,23 +493,24 @@ function parseMatchDetails(payload) {
 }
     
 
-    async function fetchCurrentWeekMatches() {
+    Vasync function fetchCurrentWeekMatches() {
     if (!resolvedListenerUrl) {
         alert('Please connect to a league first.');
         switchTab({ currentTarget: document.querySelectorAll('.tab-btn')[1] }, 'tab-sheets');
         return;
     }
 
-    try {
-        alert('Fetching current week matches via CORS proxy...');
-        
-        // 1. Wrap your listener URL with the AllOrigins proxy
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(resolvedListenerUrl)}`;
-        
-        // 2. Fetch from the proxy instead of directly hitting Google Apps Script
-        const response = await fetch(proxyUrl);
-        const textData = await response.text();
-        const data = JSON.parse(textData);
+    alert('Fetching current week matches via JSONP...');
+
+    // 1. Generate a unique global callback name
+    const callbackName = 'jsonp_cb_' + Math.random().toString(36.substring(2, 9));
+
+    // 2. Define the global callback handler that the script will trigger
+    window[callbackName] = function(data) {
+        // Clean up the temporary script tag and global function
+        delete window[callbackName];
+        const scriptElem = document.getElementById(callbackName);
+        if (scriptElem) scriptElem.remove();
 
         if (data.status === 'success' && data.matches && data.matches.length > 0) {
             const now = new Date();
@@ -563,12 +564,24 @@ function parseMatchDetails(payload) {
         } else {
             alert('No matches found in the listener sheet.');
         }
-    } catch (err) {
-        // Fallback safety net if the proxy ever hiccups
-        if (confirm("Proxy connection error. Click OK to open your listener feed directly in a new tab.")) {
+    };
+
+    // 3. Create the script element to bypass CORS entirely
+    const script = document.createElement('script');
+    script.id = callbackName;
+    script.src = `${resolvedListenerUrl}?callback=${callbackName}`;
+    
+    script.onerror = function() {
+        delete window[callbackName];
+        script.remove();
+        if (confirm("JSONP network error. Click OK to open your listener feed directly in a new tab.")) {
             window.open(resolvedListenerUrl, '_blank');
         }
-    }
+    };
+
+    // 4. Inject into the DOM to execute the request
+    document.body.appendChild(script);
+}
 }
     function loadSelectedSheetMatch() {
         const index = document.getElementById('sheet-match-dropdown').value;
