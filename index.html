@@ -410,8 +410,10 @@ function parseMatchDetails(payload) {
     // 3. Parse Game Rows
     lines.forEach(line => {
         const trimmed = line.trim();
-        if (!trimmed || /^[?HT]?\b/i.test(trimmed) || /^[?VT]?\b/i.test(trimmed) || trimmed.toLowerCase().includes("overall") || trimmed.toLowerCase().includes("league")) return;
+        // Keep "league" filtered out, but let's allow lines that have "vs" even if they don't have "Gm"
+        if (!trimmed || /^[?HT]?\b/i.test(trimmed) || /^[?VT]?\b/i.test(trimmed) || trimmed.toLowerCase().includes("league")) return;
         
+        // Flexible regex: matches optional "Gm1", catches anything before "vs" as Home Player, anything after as Visiting Player
         const gameRowRegex = /^(?:(Gm\d+|Game\s*\d+)\s*[:-]?\s*)?(.*?)\s+vs\s+(.*)$/i;
         const matchResult = trimmed.match(gameRowRegex);
 
