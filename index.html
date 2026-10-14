@@ -413,16 +413,15 @@
                 const homeTR = /\(TR\)|[TR]|\bTR\b|\bRun\b/i.test(homeRaw);
                 const home8BB = /\(8BB\)|[8BB]|\b8BB\b|\b8-Ball Break\b/i.test(homeRaw);
                 const homeNP = /\(NP\)|[NP]|\bNew\b/i.test(homeRaw);
-                
-                const homePlayer = homeRaw.replace(/\((W\vert{}TR\vert{}8BB\vert{}NP)\)|\[(W\vert{}TR\vert{}8BB\vert{}NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
-
                 const visitWin = /\(W\)|[W]|\bWin\b/i.test(visitRaw);
                 const visitTR = /\(TR\)|[TR]|\bTR\b|\bRun\b/i.test(visitRaw);
                 const visit8BB = /\(8BB\)|[8BB]|\b8BB\b|\b8-Ball Break\b/i.test(visitRaw);
                 const visitNP = /\(NP\)|[NP]|\bNew\b/i.test(visitRaw);
                 
-                const visitPlayer = visitRaw.replace(/\((W\vert{}TR\vert{}8BB\vert{}NP)\)|\[(W\vert{}TR\vert{}8BB\vert{}NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
-
+                const homePlayer = homeRaw.replace(/\((W|TR|8BB|NP)\)|\[(W|TR|8BB|NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
+                
+                const visitPlayer = visitRaw.replace(/\((W|TR|8BB|NP)\)|\[(W|TR|8BB|NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
+                
                 individualGames.push({
                     gameNum, homePlayer, homeNP, homeWin, homeTR, home8BB,
                     visitPlayer, visitNP, visitWin, visitTR, visit8BB
