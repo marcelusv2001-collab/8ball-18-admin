@@ -301,7 +301,7 @@
         }
     });
 
-    function resolveLeagueEndpoint() {
+   function resolveLeagueEndpoint() {
         const code = document.getElementById('league-code-input').value.trim();
 
         if (code.length !== 6) { alert('League code must be exactly 6 digits.'); return; }
@@ -344,7 +344,9 @@
             delete window[callbackName];
             script.remove();
             updateSheetStatus('error', 'FETCH FAILED');
-            alert('Could not reach central database endpoint via JSONP.');
+            if (confirm("JSONP network error. Click OK to open your Central DB endpoint directly in a new tab to authorize/verify.")) {
+                window.open(`${CENTRAL_DB_URL}?action=getConfig&code=${code}`, '_blank');
+            }
         };
 
         document.body.appendChild(script);
