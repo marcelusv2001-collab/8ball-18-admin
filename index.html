@@ -300,8 +300,8 @@
             const result = await response.json();
             
             if (result.status === 'success') {
-                resolvedListenerUrl = result.webhookUrl;
-                resolvedMainUrl = result.backendTargetEndpoint;
+                resolvedListenerUrl = result.listenerUrl;       // <--- Updated from webhookUrl to listenerUrl
+                resolvedMainUrl = result.backendTargetEndpoint; // <--- This matches backendTargetEndpoint
 
                 if (resolvedListenerUrl && resolvedMainUrl) {
                     localStorage.setItem('league_code', code);
