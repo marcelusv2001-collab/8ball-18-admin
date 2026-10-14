@@ -275,6 +275,18 @@
     function openHelpModal() { document.getElementById('help-modal').style.display = 'flex'; }
     function closeHelpModal() { document.getElementById('help-modal').style.display = 'none'; }
 
+    function updateSheetStatus(statusType, message) {
+        const led = document.getElementById('sheet-led');
+        const text = document.getElementById('sheet-status-text');
+        led.className = 'led-light';
+        if (statusType === 'success') {
+            led.classList.add('active');
+        } else if (statusType === 'error') {
+            led.classList.add('error');
+        }
+        text.innerText = `CONNECTION: ${message}`;
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
         const savedCode = localStorage.getItem('league_code');
         const savedListenerUrl = localStorage.getItem('resolved_listener_url');
@@ -300,8 +312,8 @@
             const result = await response.json();
             
             if (result.status === 'success') {
-                resolvedListenerUrl = result.listenerUrl;       // <--- Updated from webhookUrl to listenerUrl
-                resolvedMainUrl = result.backendTargetEndpoint; // <--- This matches backendTargetEndpoint
+                resolvedListenerUrl = result.listenerUrl;       
+                resolvedMainUrl = result.backendTargetEndpoint; 
 
                 if (resolvedListenerUrl && resolvedMainUrl) {
                     localStorage.setItem('league_code', code);
@@ -339,7 +351,11 @@
         alert('League connection cleared. You can now enter a new 6-digit league code.');
     }
 
-  function parseMatchDetails(payload) {
+    function keywordClean(str) { 
+        return str ? str.trim() : ""; 
+    }
+
+    function parseMatchDetails(payload) {
         let homeTeam = "Unknown Home";
         let visitTeam = "Unknown Visit";
         let scoreText = "N/A";
@@ -376,8 +392,8 @@
 
             if (matchResult) {
                 const gameNum = matchResult[1] || "Gm";
-                const homeRaw = typeof keywordClean === 'function' ? keywordClean(matchResult[2].trim()) : matchResult[2].trim();
-                const visitRaw = typeof keywordClean === 'function' ? keywordClean(matchResult[3].trim()) : matchResult[3].trim();
+                const homeRaw = keywordClean(matchResult[2]);
+                const visitRaw = keywordClean(matchResult[3]);
 
                 const homeWin = /\(W\)|[W]|\bWin\b/i.test(homeRaw);
                 const homeTR = /\(TR\)|[TR]|\bTR\b|\bRun\b/i.test(homeRaw);
@@ -410,8 +426,6 @@
 
         return { homeTeam, visitTeam, scoreText, individualGames };
     }
-
-    function keywordClean(str) { return str; }
 
     function stageMatch() {
         const payload = document.getElementById('input-payload').value.trim();
