@@ -278,6 +278,7 @@
     function updateSheetStatus(statusType, message) {
         const led = document.getElementById('sheet-led');
         const text = document.getElementById('sheet-status-text');
+        if (!led || !text) return;
         led.className = 'led-light';
         if (statusType === 'success') {
             led.classList.add('active');
@@ -300,18 +301,21 @@
         }
     });
 
-    async function resolveLeagueEndpoint() {
+    function resolveLeagueEndpoint() {
         const code = document.getElementById('league-code-input').value.trim();
 
         if (code.length !== 6) { alert('League code must be exactly 6 digits.'); return; }
 
         updateSheetStatus('off', 'FETCHING TARGET ENDPOINTS FROM CENTRAL DB...');
 
-        try {
-            const response = await fetch(`${CENTRAL_DB_URL}?action=getConfig&code=${code}`);
-            const result = await response.json();
-            
-            if (result.status === 'success') {
+        const callbackName = 'jsonp_config_cb_' + Math.random().toString(36).substring(2, 9);
+
+        window[callbackName] = function(result) {
+            delete window[callbackName];
+            const scriptElem = document.getElementById(callbackName);
+            if (scriptElem) scriptElem.remove();
+
+            if (result && result.status === 'success') {
                 resolvedListenerUrl = result.listenerUrl;       
                 resolvedMainUrl = result.backendTargetEndpoint; 
 
@@ -328,12 +332,22 @@
                 }
             } else {
                 updateSheetStatus('error', 'ENDPOINT NOT FOUND');
-                alert('League code not found in Central DB.');
+                alert('League code not found in Central DB or invalid response.');
             }
-        } catch (err) {
+        };
+
+        const script = document.createElement('script');
+        script.id = callbackName;
+        script.src = `${CENTRAL_DB_URL}?action=getConfig&code=${code}&callback=${callbackName}`;
+        
+        script.onerror = function() {
+            delete window[callbackName];
+            script.remove();
             updateSheetStatus('error', 'FETCH FAILED');
-            alert('Could not reach central database: ' + err.message);
-        }
+            alert('Could not reach central database endpoint via JSONP.');
+        };
+
+        document.body.appendChild(script);
     }
 
     function clearLeagueConnection() {
