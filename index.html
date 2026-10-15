@@ -379,16 +379,16 @@
 
         const lines = payload.split(/\r?\n/);
 
-        lines.forEach(line => {
+       lines.forEach(line => {
             const trimmed = line.trim();
             if (!trimmed || trimmed.toLowerCase().includes("league") || trimmed.toLowerCase().startsWith("gm")) return;
 
-            if (/^[?HT]?\b/i.test(trimmed)) {
-                const match = trimmed.match(/^[?HT]?\s+(.*?)(?:\s*\((\d+)\))?$/i);
+            if (/^\[?HT\]?/i.test(trimmed)) {
+                const match = trimmed.match(/^\[?HT\]?\s*(.*?)(?:\s*\((\d+)\))?$/i);
                 if (match && match[1]) homeTeam = match[1].trim();
             } 
-            else if (/^[?VT]?\b/i.test(trimmed)) {
-                const match = trimmed.match(/^[?VT]?\s+(.*?)(?:\s*\((\d+)\))?$/i);
+            else if (/^\[?VT\]?/i.test(trimmed)) {
+                const match = trimmed.match(/^\[?VT\]?\s*(.*?)(?:\s*\((\d+)\))?$/i);
                 if (match && match[1]) visitTeam = match[1].trim();
             }
         });
@@ -509,7 +509,37 @@
                 const now = new Date();
                 const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
 
-                const mappedMatches = data.matches.map(m => {
+const mappedMatches = data.matches.map(m => {
+                    // If the backend provided structured games/teams directly, use them!
+                    if (m.games && Array.isArray(m.games) && m.games.length > 0) {
+                        const formattedGames = m.games.map(g => ({
+                            gameNum: g.gameNum || "Gm",
+                            homePlayer: g.hPlayer || "",
+                            homeNP: g.hManual || false,
+                            homeWin: g.hWin || false,
+                            homeTR: g.hTR || false,
+                            home8BB: g.h8B || false,
+                            visitPlayer: g.vPlayer || "",
+                            visitNP: g.vManual || false,
+                            visitWin: g.vWin || false,
+                            visitTR: g.vTR || false,
+                            visit8BB: g.v8B || false
+                        }));
+
+                        return {
+                            timestamp: m.timestamp,
+                            leagueName: m.leagueName,
+                            homeTeam: m.homeTeam || "Unknown Home",
+                            visitTeam: m.visitTeam || "Unknown Visit",
+                            scoreText: m.scoreText || "0 - 0",
+                            individualGames: formattedGames,
+                            payload: m.payload,
+                            homeSig: m.homeSig || "",
+                            visitSig: m.visitSig || ""
+                        };
+                    }
+
+                    // Fallback to text parsing if structured games aren't present
                     const parsed = parseMatchDetails(m.payload || "");
                     return {
                         timestamp: m.timestamp,
@@ -517,10 +547,10 @@
                         homeTeam: m.homeTeam || parsed.homeTeam,
                         visitTeam: m.visitTeam || parsed.visitTeam,
                         scoreText: m.scoreText || parsed.scoreText,
-                        individualGames: m.individualGames && m.individualGames.length > 0 ? m.individualGames : parsed.individualGames,
+                        individualGames: parsed.individualGames,
                         payload: m.payload,
-                        homeSig: m.homeSig,
-                        visitSig: m.visitSig
+                        homeSig: m.homeSig || "",
+                        visitSig: m.visitSig || ""
                     };
                 });
 
