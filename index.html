@@ -1,12 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2285893152087172"
-     crossorigin="anonymous"></script>
+    <!-- AdSense Script -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2285893152087172" crossorigin="anonymous"></script>
+    
+    <!-- Global Helper Function for Tab Navigation -->
+    <script>
+        function switchTabByElement(btnElement, tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            if (btnElement) btnElement.classList.add('active');
+        }
+    </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>8-Ball Cash League — Backend Hub</title>
     <link rel="icon" type="image/png" href="18_game_admin_favicon.png">
+    
     <style>
         :root {
             --bg: #020617; --felt: #000080; --gold: #fbbf24;
