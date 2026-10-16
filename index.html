@@ -313,7 +313,7 @@
         }
     });
 
- async function resolveLeagueEndpoint() {
+async function resolveLeagueEndpoint() {
         const code = document.getElementById('league-code-input').value.trim();
 
         if (code.length !== 6) { alert('League code must be exactly 6 digits.'); return; }
@@ -358,22 +358,6 @@
             }
         }
     }
-        const script = document.createElement('script');
-        script.id = callbackName;
-        script.src = `${CENTRAL_DB_URL}?action=getConfig&code=${code}&callback=${callbackName}`;
-        
-        script.onerror = function() {
-            delete window[callbackName];
-            script.remove();
-            updateSheetStatus('error', 'FETCH FAILED');
-            if (confirm("JSONP network error. Click OK to open your Central DB endpoint directly in a new tab to authorize/verify.")) {
-                window.open(`${CENTRAL_DB_URL}?action=getConfig&code=${code}`, '_blank');
-            }
-        };
-
-        document.body.appendChild(script);
-    }
-
     function clearLeagueConnection() {
         if (!confirm('Are you sure you want to clear the current league connection and enter a new code?')) return;
 
