@@ -381,7 +381,7 @@
 
        lines.forEach(line => {
             const trimmed = line.trim();
-            if (!trimmed || trimmed.toLowerCase().includes("league") || trimmed.toLowerCase().startsWith("gm")) return;
+            if (!trimmed || trimmed.toLowerCase().includes("league")) return;
 
             if (/^\[?HT\]?/i.test(trimmed)) {
                 const match = trimmed.match(/^\[?HT\]?\s*(.*?)(?:\s*\((\d+)\))?$/i);
