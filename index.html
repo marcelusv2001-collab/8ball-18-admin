@@ -301,23 +301,29 @@
         }
     });
 
-   function resolveLeagueEndpoint() {
+   async function resolveLeagueEndpoint() {
         const code = document.getElementById('league-code-input').value.trim();
 
         if (code.length !== 6) { alert('League code must be exactly 6 digits.'); return; }
 
         updateSheetStatus('off', 'FETCHING TARGET ENDPOINTS FROM CENTRAL DB...');
 
-        const callbackName = 'jsonp_config_cb_' + Math.random().toString(36).substring(2, 9);
+        try {
+            // Use standard fetch with cache-busting to bypass browser and Google redirect blocks
+            const response = await fetch(`${CENTRAL_DB_URL}?action=getConfig&code=${code}&cb=${Date.now()}`, {
+                method: 'GET',
+                redirect: 'follow'
+            });
 
-        window[callbackName] = function(result) {
-            delete window[callbackName];
-            const scriptElem = document.getElementById(callbackName);
-            if (scriptElem) scriptElem.remove();
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
 
             if (result && result.status === 'success') {
-                resolvedListenerUrl = result.listenerUrl;       
-                resolvedMainUrl = result.backendTargetEndpoint; 
+                resolvedListenerUrl = result.webhookUrl;       // Matches Central DB's "webhookUrl" key
+                resolvedMainUrl = result.targetEndpoint;     // Matches Central DB's "targetEndpoint" key
 
                 if (resolvedListenerUrl && resolvedMainUrl) {
                     localStorage.setItem('league_code', code);
@@ -332,9 +338,15 @@
                 }
             } else {
                 updateSheetStatus('error', 'ENDPOINT NOT FOUND');
-                alert('League code not found in Central DB or invalid response.');
+                alert(result.message || 'League code not found in Central DB.');
             }
-        };
+        } catch (err) {
+            updateSheetStatus('error', 'FETCH FAILED');
+            if (confirm("Network error connecting to Central DB. Click OK to open your Central DB endpoint directly in a new tab to verify deployment access.")) {
+                window.open(`${CENTRAL_DB_URL}?action=getConfig&code=${code}`, '_blank');
+            }
+        }
+    }
 
         const script = document.createElement('script');
         script.id = callbackName;
