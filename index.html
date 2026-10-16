@@ -301,7 +301,7 @@
         }
     });
 
-   async function resolveLeagueEndpoint() {
+ async function resolveLeagueEndpoint() {
         const code = document.getElementById('league-code-input').value.trim();
 
         if (code.length !== 6) { alert('League code must be exactly 6 digits.'); return; }
@@ -309,7 +309,6 @@
         updateSheetStatus('off', 'FETCHING TARGET ENDPOINTS FROM CENTRAL DB...');
 
         try {
-            // Use standard fetch with cache-busting to bypass browser and Google redirect blocks
             const response = await fetch(`${CENTRAL_DB_URL}?action=getConfig&code=${code}&cb=${Date.now()}`, {
                 method: 'GET',
                 redirect: 'follow'
@@ -322,8 +321,8 @@
             const result = await response.json();
 
             if (result && result.status === 'success') {
-                resolvedListenerUrl = result.webhookUrl;       // Matches Central DB's "webhookUrl" key
-                resolvedMainUrl = result.targetEndpoint;     // Matches Central DB's "targetEndpoint" key
+                resolvedListenerUrl = result.webhookUrl;       // Column I listener webhook
+                resolvedMainUrl = result.targetEndpoint;     // Column J backend target
 
                 if (resolvedListenerUrl && resolvedMainUrl) {
                     localStorage.setItem('league_code', code);
@@ -331,7 +330,7 @@
                     localStorage.setItem('resolved_main_url', resolvedMainUrl);
 
                     updateSheetStatus('success', 'CONNECTED (CODE: ' + code + ')');
-                    alert(`Successfully linked! Both Listener (Col I) and Main Sheet (Col J) endpoints loaded for code: ${code}`);
+                    alert(`Successfully linked! Both Listener and Main Sheet endpoints loaded for code: ${code}`);
                 } else {
                     updateSheetStatus('error', 'INCOMPLETE ENDPOINTS');
                     alert('One or both URLs (Column I / Column J) are missing for this league code in Central DB.');
@@ -342,12 +341,11 @@
             }
         } catch (err) {
             updateSheetStatus('error', 'FETCH FAILED');
-            if (confirm("Network error connecting to Central DB. Click OK to open your Central DB endpoint directly in a new tab to verify deployment access.")) {
+            if (confirm("Network error connecting to Central DB. Click OK to open your Central DB endpoint directly in a new tab to verify.")) {
                 window.open(`${CENTRAL_DB_URL}?action=getConfig&code=${code}`, '_blank');
             }
         }
     }
-
         const script = document.createElement('script');
         script.id = callbackName;
         script.src = `${CENTRAL_DB_URL}?action=getConfig&code=${code}&callback=${callbackName}`;
@@ -523,119 +521,114 @@
         alert('Match added to queue successfully with all player frames and markers!');
     }
 
-    function fetchCurrentWeekMatches() {
-        if (!resolvedListenerUrl) {
-            alert('Please connect to a league first.');
-            switchTabByElement(document.getElementById('btn-tab-sheets'), 'tab-sheets');
-            return;
+async function fetchCurrentWeekMatches() {
+    if (!resolvedListenerUrl) {
+        alert('Please connect to a league first.');
+        switchTabByElement(document.getElementById('btn-tab-sheets'), 'tab-sheets');
+        return;
+    }
+
+    alert('Fetching current week matches...');
+
+    try {
+        const response = await fetch(`${resolvedListenerUrl}?cb=${Date.now()}`, {
+            method: 'GET',
+            redirect: 'follow'
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        alert('Fetching current week matches via JSONP...');
+        const data = await response.json();
 
-        const callbackName = 'jsonp_cb_' + Math.random().toString(36).substring(2, 9);
+        if (data.status === 'success' && data.matches && data.matches.length > 0) {
+            const now = new Date();
+            const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
 
-        window[callbackName] = function(data) {
-            delete window[callbackName];
-            const scriptElem = document.getElementById(callbackName);
-            if (scriptElem) scriptElem.remove();
+            const mappedMatches = data.matches.map(m => {
+                if (m.games && Array.isArray(m.games) && m.games.length > 0) {
+                    const formattedGames = m.games.map(g => ({
+                        gameNum: g.gameNum || "Gm",
+                        homePlayer: g.hPlayer || "",
+                        homeNP: g.hManual || false,
+                        homeWin: g.hWin || false,
+                        homeTR: g.hTR || false,
+                        home8BB: g.h8B || false,
+                        visitPlayer: g.vPlayer || "",
+                        visitNP: g.vManual || false,
+                        visitWin: g.vWin || false,
+                        visitTR: g.vTR || false,
+                        visit8BB: g.v8B || false
+                    }));
 
-            if (data.status === 'success' && data.matches && data.matches.length > 0) {
-                const now = new Date();
-                const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-
-const mappedMatches = data.matches.map(m => {
-                    // If the backend provided structured games/teams directly, use them!
-                    if (m.games && Array.isArray(m.games) && m.games.length > 0) {
-                        const formattedGames = m.games.map(g => ({
-                            gameNum: g.gameNum || "Gm",
-                            homePlayer: g.hPlayer || "",
-                            homeNP: g.hManual || false,
-                            homeWin: g.hWin || false,
-                            homeTR: g.hTR || false,
-                            home8BB: g.h8B || false,
-                            visitPlayer: g.vPlayer || "",
-                            visitNP: g.vManual || false,
-                            visitWin: g.vWin || false,
-                            visitTR: g.vTR || false,
-                            visit8BB: g.v8B || false
-                        }));
-
-                        return {
-                            timestamp: m.timestamp,
-                            leagueName: m.leagueName,
-                            homeTeam: m.homeTeam || "Unknown Home",
-                            visitTeam: m.visitTeam || "Unknown Visit",
-                            scoreText: m.scoreText || "0 - 0",
-                            individualGames: formattedGames,
-                            payload: m.payload,
-                            homeSig: m.homeSig || "",
-                            visitSig: m.visitSig || ""
-                        };
-                    }
-
-                    // Fallback to text parsing if structured games aren't present
-                    const parsed = parseMatchDetails(m.payload || "");
                     return {
                         timestamp: m.timestamp,
                         leagueName: m.leagueName,
-                        homeTeam: m.homeTeam || parsed.homeTeam,
-                        visitTeam: m.visitTeam || parsed.visitTeam,
-                        scoreText: m.scoreText || parsed.scoreText,
-                        individualGames: parsed.individualGames,
+                        homeTeam: m.homeTeam || "Unknown Home",
+                        visitTeam: m.visitTeam || "Unknown Visit",
+                        scoreText: m.scoreText || "0 - 0",
+                        individualGames: formattedGames,
                         payload: m.payload,
                         homeSig: m.homeSig || "",
                         visitSig: m.visitSig || ""
                     };
-                });
-
-                fetchedSheetMatches = mappedMatches.filter(m => {
-                    if (!m.timestamp) return true;
-                    const matchDate = new Date(m.timestamp);
-                    return matchDate >= oneWeekAgo;
-                });
-
-                const dropdown = document.getElementById('sheet-match-dropdown');
-                dropdown.innerHTML = '<option value="">-- Select a match --</option>';
-
-                if (fetchedSheetMatches.length === 0) {
-                    fetchedSheetMatches = mappedMatches;
                 }
 
+                const parsed = parseMatchDetails(m.payload || "");
+                return {
+                    timestamp: m.timestamp,
+                    leagueName: m.leagueName,
+                    homeTeam: m.homeTeam || parsed.homeTeam,
+                    visitTeam: m.visitTeam || parsed.visitTeam,
+                    scoreText: m.scoreText || parsed.scoreText,
+                    individualGames: parsed.individualGames,
+                    payload: m.payload,
+                    homeSig: m.homeSig || "",
+                    visitSig: m.visitSig || ""
+                };
+            });
+
+            fetchedSheetMatches = mappedMatches.filter(m => {
+                if (!m.timestamp) return true;
+                const matchDate = new Date(m.timestamp);
+                return matchDate >= oneWeekAgo;
+            });
+
+            if (fetchedSheetMatches.length === 0) {
+                fetchedSheetMatches = mappedMatches;
+            }
+
+            const dropdown = document.getElementById('sheet-match-dropdown');
+            if (dropdown) {
+                dropdown.innerHTML = '<option value="">-- Select a match --</option>';
                 fetchedSheetMatches.forEach((m, index) => {
                     const opt = document.createElement('option');
                     opt.value = index;
                     let dateStr = 'Recent';
                     if (m.timestamp) {
                         const d = new Date(m.timestamp);
-                        if (!isNaN(d.getTime())) {
-                            dateStr = d.toLocaleDateString();
-                        }
+                        if (!isNaN(d.getTime())) dateStr = d.toLocaleDateString();
                     }
                     opt.text = `${m.homeTeam} vs ${m.visitTeam} — (${dateStr})`;
                     dropdown.appendChild(opt);
                 });
-
-                document.getElementById('match-selector-container').style.display = 'block';
-                alert(`Loaded ${fetchedSheetMatches.length} match(es)! Select one from the dropdown below.`);
-            } else {
-                alert('No matches found in the listener sheet.');
             }
-        };
 
-        const script = document.createElement('script');
-        script.id = callbackName;
-        script.src = `${resolvedListenerUrl}?callback=${callbackName}`;
-        
-        script.onerror = function() {
-            delete window[callbackName];
-            script.remove();
-            if (confirm("JSONP network error. Click OK to open your listener feed directly in a new tab.")) {
-                window.open(resolvedListenerUrl, '_blank');
-            }
-        };
+            const container = document.getElementById('match-selector-container');
+            if (container) container.style.display = 'block';
 
-        document.body.appendChild(script);
+            alert(`Loaded ${fetchedSheetMatches.length} match(es)! Select one from the dropdown below.`);
+        } else {
+            alert('No matches found in the listener sheet.');
+        }
+    } catch (err) {
+        alert('Failed to fetch matches from listener endpoint: ' + err.message);
+        if (confirm("Click OK to open your listener sheet feed directly in a new tab.")) {
+            window.open(resolvedListenerUrl, '_blank');
+        }
     }
+}
 
     function loadSelectedSheetMatch() {
         const index = document.getElementById('sheet-match-dropdown').value;
