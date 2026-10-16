@@ -672,6 +672,8 @@ const mappedMatches = data.matches.map(m => {
 
     function lockAndGenerateBatch() {
         try {
+            console.log("Staged Matches Data:", stagedMatches); // Check the console to see if individualGames has items
+            
             const unapproved = stagedMatches.filter(m => !m.approved);
             if (unapproved.length > 0) {
                 if (!confirm(`You have ${unapproved.length} unapproved match(es). Lock and generate batch anyway?`)) return;
