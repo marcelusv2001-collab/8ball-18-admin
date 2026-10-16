@@ -377,12 +377,13 @@
         let scoreText = "N/A";
         let individualGames = [];
 
+        if (!payload) return { homeTeam, visitTeam, scoreText, individualGames };
+
         const lines = payload.split(/\r?\n/);
 
-       lines.forEach(line => {
+        // 1. Extract team headers
+        lines.forEach(line => {
             const trimmed = line.trim();
-            if (!trimmed || trimmed.toLowerCase().includes("league")) return;
-
             if (/^\[?HT\]?/i.test(trimmed)) {
                 const match = trimmed.match(/^\[?HT\]?\s*(.*?)(?:\s*\((\d+)\))?$/i);
                 if (match && match[1]) homeTeam = match[1].trim();
@@ -393,44 +394,65 @@
             }
         });
 
+        // 2. Extract overall score
         const hScoreMatch = payload.match(/^\[?HT\b.*?\((\d+)\)/im);
         const vScoreMatch = payload.match(/^\[?VT\b.*?\((\d+)\)/im);
         if (hScoreMatch && vScoreMatch) {
             scoreText = `${hScoreMatch[1]} - ${vScoreMatch[1]}`;
         }
 
+        // 3. Extract individual game frames (Gm1, Gm2, etc.)
         lines.forEach(line => {
             const trimmed = line.trim();
-            if (!trimmed || /^[?HT]?\b/i.test(trimmed) || /^[?VT]?\b/i.test(trimmed) || trimmed.toLowerCase().includes("league") || trimmed.toLowerCase().includes("overall")) return;
-            
-            const gameRowRegex = /^(?:(Gm\d+|Game\s*\d+)\s*[:-]?\s*)?(.*?)\s+(?:vs\.?|-|against)\s+(.*)$/i;
-            const matchResult = trimmed.match(gameRowRegex);
+            // Look for lines that contain "vs" and start with "Gm" or a number
+            if (!trimmed || !/vs/i.test(trimmed)) return;
 
-            if (matchResult) {
-                const gameNum = matchResult[1] || "Gm";
-                const homeRaw = keywordClean(matchResult[2]);
-                const visitRaw = keywordClean(matchResult[3]);
+            // Split cleanly by "vs" or "vs." case-insensitively
+            const parts = trimmed.split(/\s+vs\.?\s+/i);
+            if (parts.length === 2) {
+                const homePart = parts[0].trim();
+                const visitPart = parts[1].trim();
 
-                const homeWin = /\(W\)|[W]|\bWin\b/i.test(homeRaw);
-                const homeTR = /\(TR\)|[TR]|\bTR\b|\bRun\b/i.test(homeRaw);
-                const home8BB = /\(8BB\)|[8BB]|\b8BB\b|\b8-Ball Break\b/i.test(homeRaw);
-                const homeNP = /\(NP\)|[NP]|\bNew\b/i.test(homeRaw);
-                const visitWin = /\(W\)|[W]|\bWin\b/i.test(visitRaw);
-                const visitTR = /\(TR\)|[TR]|\bTR\b|\bRun\b/i.test(visitRaw);
-                const visit8BB = /\(8BB\)|[8BB]|\b8BB\b|\b8-Ball Break\b/i.test(visitRaw);
-                const visitNP = /\(NP\)|[NP]|\bNew\b/i.test(visitRaw);
-                
-                const homePlayer = homeRaw.replace(/\((W|TR|8BB|NP)\)|\[(W|TR|8BB|NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
-                
-                const visitPlayer = visitRaw.replace(/\((W|TR|8BB|NP)\)|\[(W|TR|8BB|NP)\]|\b(Win|TR|8BB|NP|New)\b/gi, '').trim();
-                
+                // Extract game number prefix (e.g. "Gm1", "Gm2")
+                const gameNumMatch = homePart.match(/^(Gm\d+|\d+)/i);
+                const gameNum = gameNumMatch ? gameNumMatch[1] : "Gm";
+
+                // Strip the game number prefix from the home player section
+                const homeRaw = homePart.replace(/^(Gm\d+|\d+)\s*[:-]?\s*/i, "").trim();
+                const visitRaw = visitPart.trim();
+
+                // Check flags/markers
+                const homeWin = /\(W\)/i.test(homeRaw);
+                const homeTR = /\(TR\)/i.test(homeRaw);
+                const home8BB = /\(8BB\)/i.test(homeRaw);
+                const homeNP = /\(NP\)/i.test(homeRaw);
+
+                const visitWin = /\(W\)/i.test(visitRaw);
+                const visitTR = /\(TR\)/i.test(visitRaw);
+                const visit8BB = /\(8BB\)/i.test(visitRaw);
+                const visitNP = /\(NP\)/i.test(visitRaw);
+
+                // Clean player names by stripping tag brackets
+                const homePlayer = homeRaw.replace(/\s*\([^)]*\)/g, '').trim();
+                const visitPlayer = visitRaw.replace(/\s*\([^)]*\)/g, '').trim();
+
                 individualGames.push({
-                    gameNum, homePlayer, homeNP, homeWin, homeTR, home8BB,
-                    visitPlayer, visitNP, visitWin, visitTR, visit8BB
+                    gameNum, 
+                    homePlayer, 
+                    homeNP, 
+                    homeWin, 
+                    homeTR, 
+                    home8BB,
+                    visitPlayer, 
+                    visitNP, 
+                    visitWin, 
+                    visitTR, 
+                    visit8BB
                 });
             }
         });
 
+        // Fallback if no games were parsed
         if (individualGames.length === 0) {
             individualGames.push({
                 gameNum: "Gm1", homePlayer: homeTeam, visitPlayer: visitTeam,
